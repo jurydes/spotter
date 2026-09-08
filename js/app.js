@@ -315,6 +315,9 @@ function getStockFor(productId, size){
    сессии, а не ронять страницу.
    ===================================================================== */
 const CART_KEY = 'spotter-cart-v1';
+// Предзаказ размера, которого нет в остатке: остатка для проверки нет,
+// поэтому просто ограничиваем разумным числом, а не нулём.
+const PREORDER_MAX_QTY = 20;
 function loadCart(){
   try{
     const raw = localStorage.getItem(CART_KEY);
@@ -353,6 +356,21 @@ function addToCart(productId, size, qty){
   renderCartCount();
   return add === qty;
 }
+// Предзаказ: размера нет в остатке, но покупатель готов подождать.
+// В отличие от addToCart ничем не ограничен, кроме PREORDER_MAX_QTY —
+// сверяться тут не с чем, товара физически ещё нет.
+function addPreorder(productId, size, qty){
+  const add = Math.max(1, Math.min(qty, PREORDER_MAX_QTY));
+  const existing = cart.find(c => c.productId === productId && c.size === size);
+  if (existing){
+    existing.qty = Math.min(existing.qty + add, PREORDER_MAX_QTY);
+    existing.preorder = true;
+  } else {
+    cart.push({ productId, size, qty: add, preorder: true });
+  }
+  saveCart();
+  renderCartCount();
+}
 function removeFromCart(productId, size){
   cart = cart.filter(c => !(c.productId === productId && c.size === size));
   saveCart();
@@ -361,11 +379,11 @@ function removeFromCart(productId, size){
   render(); // товара в корзине больше нет — кнопка на карточке снова «Добавить»
 }
 function setCartQty(productId, size, qty){
-  const available = getStockFor(productId, size);
   const item = cart.find(c => c.productId === productId && c.size === size);
   if (!item) return;
   if (qty <= 0){ removeFromCart(productId, size); return; }
-  item.qty = Math.min(qty, available);
+  const cap = item.preorder ? PREORDER_MAX_QTY : getStockFor(productId, size);
+  item.qty = Math.min(qty, cap);
   saveCart();
   renderCartCount();
   renderDrawer();
@@ -747,7 +765,9 @@ function qtyInCartForProduct(productId){
 function buyButtonHtml(product){
   const outOfStock = stockLabel(product).cls === 'stock-out';
   if (outOfStock){
-    return `<button class="btn buy-btn" disabled>Нет в наличии</button>`;
+    // Остатка нет, но заказать всё равно можно — карточка ведёт в модалку,
+    // где для каждого размера открыт путь оформить предзаказ.
+    return `<button class="btn-outline buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
   }
   // Товар уже в корзине — вместо повторного добавления даём переход в корзину.
   if (qtyInCartForProduct(product.id) > 0){
@@ -770,6 +790,7 @@ function productCardHtml(p, tagText){
         <h3>${escapeHtml(p.name)}</h3>
         <div class="price">${formatPrice(p.price)}</div>
         <div class="stock-flag ${st.cls}">${st.text}</div>
+        <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
         ${buyButtonHtml(p)}
       </div>
     </div>`;
@@ -1026,6 +1047,9 @@ function renderModal(){
   else if (availableForSize <= 0){ addLabel = 'Этого размера нет'; addDisabled = true; }
 
   const soldOutPicked = modalSize && availableForSize <= 0;
+  // Пока размер не выбран — счётчик считает остаток, после выбора распроданного
+  // размера тот же счётчик переключается на потолок предзаказа.
+  const qtyCap = soldOutPicked ? PREORDER_MAX_QTY : availableForSize;
 
   document.getElementById('modalContent').innerHTML = `
     <button class="modal-close" id="modalCloseBtn" aria-label="Закрыть">×</button>
@@ -1040,6 +1064,7 @@ function renderModal(){
       <h2 id="modalTitle">${escapeHtml(p.name)}</h2>
       <div class="price">${formatPrice(p.price)}</div>
       <p class="desc">${escapeHtml(p.description)}</p>
+      <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
       <div>
         <span class="field-label">Размер</span>
         <div class="size-row">${sizesHtml}</div>
@@ -1047,15 +1072,21 @@ function renderModal(){
       ${soldOutPicked ? `
       <div class="restock">
         <div class="restock-title mono">Размер ${escapeHtml(modalSize)} разобрали</div>
-        <p class="restock-note">Напишем в Telegram, когда довезём. Заявка уйдёт продавцу — ответьте на неё, и вас поставят в очередь.</p>
-        <button class="btn-outline" id="restockBtn">Сообщить о поступлении</button>
+        <p class="restock-note">Можно оформить предзаказ — сроки и оплату продавец согласует в переписке.</p>
+        <div class="qty-row">
+          <button class="qty-btn" id="qtyMinus" ${modalQty<=1?'disabled':''}>−</button>
+          <span class="qty-val" id="qtyVal">${modalQty}</span>
+          <button class="qty-btn" id="qtyPlus" ${modalQty < qtyCap ? '' : 'disabled'}>+</button>
+        </div>
+        <button class="btn" id="preorderBtn">Оформить предзаказ</button>
+        <button class="link-btn" id="restockBtn">Просто сообщить, когда появится</button>
       </div>` : `
       <div>
         <span class="field-label">Количество</span>
         <div class="qty-row">
           <button class="qty-btn" id="qtyMinus" ${modalQty<=1?'disabled':''}>−</button>
           <span class="qty-val" id="qtyVal">${modalQty}</span>
-          <button class="qty-btn" id="qtyPlus" ${modalSize && modalQty < availableForSize ? '' : 'disabled'}>+</button>
+          <button class="qty-btn" id="qtyPlus" ${modalSize && modalQty < qtyCap ? '' : 'disabled'}>+</button>
           <span class="stock-note">${modalSize ? `осталось: ${Math.max(availableForSize,0)}` : 'выберите размер'}</span>
         </div>
       </div>
@@ -1083,15 +1114,23 @@ function renderModal(){
     const text = `Привет! Сообщите, когда появится: ${p.name}, размер ${modalSize}.`;
     window.open(`https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   });
-  const minusBtn = document.getElementById('qtyMinus');
-  if (!minusBtn){ bindModalCartBtn(); return; } // выбран распроданный размер — счётчика нет
-  minusBtn.addEventListener('click', ()=>{
+  document.getElementById('qtyMinus').addEventListener('click', ()=>{
     modalQty = Math.max(1, modalQty-1); renderModal();
   });
   document.getElementById('qtyPlus').addEventListener('click', ()=>{
-    modalQty = Math.min(Math.max(availableForSize,1), modalQty+1); renderModal();
+    modalQty = Math.min(Math.max(qtyCap,1), modalQty+1); renderModal();
   });
-  document.getElementById('addToCartBtn').addEventListener('click', ()=>{
+  const preorderBtn = document.getElementById('preorderBtn');
+  if (preorderBtn) preorderBtn.addEventListener('click', ()=>{
+    const asked = modalQty;
+    addPreorder(p.id, modalSize, asked);
+    modalMsg = `Добавлено в предзаказ: размер ${modalSize}, ${asked} шт.`;
+    modalQty = 1;
+    renderModal();
+    render();
+  });
+  const addBtn = document.getElementById('addToCartBtn');
+  if (addBtn) addBtn.addEventListener('click', ()=>{
     if (addDisabled) return;
     const asked = modalQty;
     const ok = addToCart(p.id, modalSize, asked);
@@ -1360,13 +1399,13 @@ function renderDrawer(){
   body.innerHTML = cart.map(item=>{
     const p = findProduct(item.productId);
     if (!p) return '';
-    const max = getStockFor(item.productId, item.size);
+    const max = item.preorder ? PREORDER_MAX_QTY : getStockFor(item.productId, item.size);
     return `
     <div class="cart-item">
       ${productPhoto(p)}
       <div class="ci-info">
         <h4>${escapeHtml(p.name)}</h4>
-        <div class="ci-meta">размер: ${escapeHtml(item.size)}</div>
+        <div class="ci-meta">размер: ${escapeHtml(item.size)}${item.preorder ? ' <span class="preorder-flag">предзаказ</span>' : ''}</div>
         <div class="ci-controls">
           <button class="qty-btn" data-dec="${p.id}|${item.size}">−</button>
           <span class="qty-val">${item.qty}</span>
@@ -1438,6 +1477,7 @@ function handleCheckout(){
   // пока товар лежал в корзине
   const shortages = [];
   cart.forEach(item=>{
+    if (item.preorder) return; // остатка для предзаказа нет и не должно быть — сверять не с чем
     const available = getStockFor(item.productId, item.size);
     if (item.qty > available){
       item.qty = Math.max(available, 0);
@@ -1459,7 +1499,8 @@ function handleCheckout(){
   const lines = ['Заказ с сайта SPOTTER:'];
   cart.forEach(item=>{
     const p = findProduct(item.productId);
-    lines.push(`— ${p.name}, размер ${item.size}, ${item.qty} шт., ${formatPrice(p.price*item.qty)}`);
+    const tag = item.preorder ? ' — ПРЕДЗАКАЗ' : '';
+    lines.push(`— ${p.name}, размер ${item.size}, ${item.qty} шт., ${formatPrice(p.price*item.qty)}${tag}`);
   });
   lines.push(`Итого: ${formatPrice(cartTotalPrice())}`);
   lines.push(`Формат получения: ${delivery}`);

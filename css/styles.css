@@ -408,6 +408,9 @@
   .stock-ok{color:var(--steel);}
   .stock-low{color:var(--warn);}
   .stock-out{color:var(--paper-dim);}
+  .delivery-note{font-size:11px;color:var(--paper-dim);letter-spacing:0.02em;}
+  .merch-card .delivery-note{margin-top:4px;}
+  .preorder-flag{color:var(--accent-light);text-transform:uppercase;letter-spacing:0.03em;}
   .popular-tag{
     position:absolute;top:8px;left:8px;z-index:2;
     background:var(--accent);color:var(--paper);font-family:var(--f-mono);font-size:10px;
