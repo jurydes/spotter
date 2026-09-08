@@ -1,0 +1,148 @@
+{
+"episodes": [
+  {
+    "chapter": 1,
+    "number": 1,
+    "standalone": false,
+    "title": "REDO, TILLS, JEWELZ PART II, FOLKPRO x DJ CHAPO",
+    "artists": ["REDO", "TILLS", "JEWELZ", "FOLKPRO", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=wGEtGLTBDcU",
+    "duration": "11:45",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ep01-redo-tills-jewelz-folkpro.jpg"
+  },
+  {
+    "chapter": 1,
+    "number": 2,
+    "standalone": false,
+    "title": "PRA(KILLA'GRAMM), RAYBAX, JOLLO, KODZIMA, LONGLIVE x DJ CHAPO",
+    "artists": ["PRA(KILLA'GRAMM)", "RAYBAX", "JOLLO", "KODZIMA", "LONGLIVE", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=T3JxilxxaPg",
+    "duration": "14:45",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ep02-prakillagramm-raybax-jollo-kodzima-longlive.jpg"
+  },
+  {
+    "chapter": 1,
+    "number": 3,
+    "standalone": false,
+    "title": "RAM, TILLS, CHENOSKE, SPIESKEY, JEWELZ PART II, VERLIEBER x DJ CHAPO",
+    "artists": ["RAM", "TILLS", "CHENOSKE", "SPIESKEY", "JEWELZ", "VERLIEBER", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=XlTIW2OH4yA",
+    "duration": "13:41",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ep03-ram-tills-chenoske-spieskey-verlieber.jpg"
+  },
+  {
+    "chapter": 1,
+    "number": 4,
+    "standalone": false,
+    "title": "REDO, TVETH, МЕЗАМЕР, ESKI M x DJ CHAPO",
+    "artists": ["REDO", "TVETH", "МЕЗАМЕР", "ESKI M", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=tBQRqC42uiU",
+    "duration": "11:58",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ep04-redo-tveth-mezamer-eskim.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 3,
+    "standalone": false,
+    "title": "RAYBAX, STEPPA STYLE, SPIESKEY, HUMSLEEP, ESKI M x ODDKUT",
+    "artists": ["RAYBAX", "STEPPA STYLE", "SPIESKEY", "HUMSLEEP", "ESKI M", "ODDKUT"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=QHlIJr8498A",
+    "duration": "24:39",
+    "dj": "ODDKUT",
+    "cover": "assets/episodes/ch2-ep03-raybax-steppastyle-spieskey-humsleep-eskim.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 4,
+    "standalone": false,
+    "title": "BUMBLE BEEZY, REDO, JOLLO, RECEPT x DJ CHAPO",
+    "artists": ["BUMBLE BEEZY", "REDO", "JOLLO", "RECEPT", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=RMI1BhYkSyM",
+    "duration": "18:21",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ch2-ep04-bumblebeezy-redo-jollo-recept.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 5,
+    "standalone": false,
+    "title": "ВОВА КЛЕВЕР, JEWELZ, T!MMI, EEUGENE SPEED, YA DIGG KAPUSTU x DJ CHAPO",
+    "artists": ["ВОВА КЛЕВЕР", "JEWELZ PART II", "T!MMI", "EEUGENE SPEED", "YA DIGG KAPUSTU!", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=Y9GGNxYPWEU",
+    "duration": "16:51",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ch2-ep05-vovaklever-jewelz-timmi-eeugenespeed-doctorkapustu.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 6,
+    "standalone": false,
+    "title": "МАЙК СТИКС, TILLS, GD4, LONGLIVE x FIRRY",
+    "artists": ["МАЙК СТИКС", "TILLS", "GD4", "LONGLIVE", "FIRRY"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=6biEVwSK8Qk",
+    "duration": "17:25",
+    "dj": "FIRRY",
+    "cover": "assets/episodes/ch2-ep06-gd4-maikstiks-longlive-tills.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 7,
+    "standalone": false,
+    "title": "PRA(KILLA'GRAMM), MAGU, КАЖЭ ОБОЙМА, LORD POLO x CHAPO",
+    "artists": ["PRA(KILLA'GRAMM)", "MAGU", "КАЖЭ ОБОЙМА", "LORD POLO", "CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=RQcJe7P_1dk",
+    "duration": "16:18",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ch2-ep07-prakillagramm-magu-lordpolo-kazheoboyma.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 1,
+    "standalone": false,
+    "title": "НОКТУ, VITO, ALONE30, AMMIAK x DJ CHAPO",
+    "artists": ["НОКТУ", "VITO", "ALONE30", "AMMIAK", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=i4no-mDA64s",
+    "duration": "17:31",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ch2-ep01-noktu-vito-ammiak-alone30.jpg"
+  },
+  {
+    "chapter": 2,
+    "number": 2,
+    "standalone": false,
+    "title": "МАКСИ ГРИН, MATI BOY, KODZIMA, MELLOW G, БАЧ x DJ CHAPO",
+    "artists": ["МАКСИ ГРИН", "MATI BOY", "KODZIMA", "MELLOW G", "БАЧ", "DJ CHAPO"],
+    "description": "",
+    "youtubeUrl": "https://www.youtube.com/watch?v=Rn3scIXh1sE",
+    "duration": "20:00",
+    "dj": "DJ CHAPO",
+    "cover": "assets/episodes/ch2-ep02-maksigreen-matiboy-kodzima-mellowg-bach.jpg"
+  },
+  {
+    "chapter": null,
+    "number": null,
+    "standalone": true,
+    "title": "SPOTTER - REDO /s1",
+    "artists": ["REDO"],
+    "description": "Самый первый выпуск SPOTTER, сделанный задолго до создания формата SPOTTER LIVE, в котором REDO исполняет трек PANDORA BLOCK.",
+    "youtubeUrl": "https://www.youtube.com/watch?v=YifSk_JCF7k",
+    "duration": "2:48",
+    "dj": "",
+    "cover": "assets/episodes/standalone-redo-s1.jpg"
+  }
+]
+}

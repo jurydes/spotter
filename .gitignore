@@ -1,0 +1,8 @@
+# Ключи и секреты — никогда не коммитить.
+# В .env лежит youtubeApiKey для скрипта tools/update-views.ps1.
+.env
+
+# Служебное
+.DS_Store
+Thumbs.db
+*.bak

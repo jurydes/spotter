@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPOTTER LIVE — русский грайм вживую, в один заход</title>
+<meta name="description" content="SPOTTER LIVE — площадка русского грайма: МС читают вживую под бит, в один заход, без десятков дублей. Архив выпусков с треклистами и мерч проекта.">
+<meta name="theme-color" content="#101012">
+
+<!-- Превью ссылки в Telegram, Instagram и мессенджерах. Бот, который строит
+     превью, не исполняет скрипты и видит только эти теги — без них ссылка
+     разворачивается пустой карточкой. Правки текста здесь дублировать
+     в title/description выше. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SPOTTER LIVE">
+<meta property="og:title" content="SPOTTER LIVE — русский грайм вживую">
+<meta property="og:description" content="МС читают вживую под бит, в один заход. Архив выпусков с треклистами и мерч проекта.">
+<meta property="og:image" content="assets/episodes/ch2-ep07-prakillagramm-magu-lordpolo-kazheoboyma.jpg">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="720">
+<meta property="og:locale" content="ru_RU">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/favicon.png">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="logo">
+      <a href="#/" aria-label="SPOTTER — на главную"><img src="assets/logo.png" alt="SPOTTER" class="logo-img"></a>
+    </div>
+    <nav class="tabs" id="tabsDesktop">
+      <button data-tab="home" class="active">Главная</button>
+      <button data-tab="episodes">Выпуски</button>
+      <button data-tab="merch">Мерч</button>
+    </nav>
+    <button class="cart-btn" id="cartOpenBtn">Корзина <span class="cart-count" id="cartCount">0</span></button>
+  </div>
+  <div class="mobile-tabs">
+    <div class="wrap" id="tabsMobile">
+      <button data-tab="home" class="active">Главная</button>
+      <button data-tab="episodes">Выпуски</button>
+      <button data-tab="merch">Мерч</button>
+    </div>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <div class="mono" style="font-size:12px;color:var(--paper-dim);">© SPOTTER, <span id="year"></span></div>
+    <div class="footer-links">
+      <a href="https://www.youtube.com/@spotterrussia" target="_blank" rel="noopener">YouTube</a>
+      <a href="https://www.instagram.com/spotterrussia/" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://t.me/spotterglobal" target="_blank" rel="noopener">Telegram</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Product modal -->
+<div class="overlay" id="productOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- Фото на весь экран (открывается из карточки товара) -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Фото товара"></div>
+
+<!-- Cart drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="cartDrawer">
+  <div class="drawer-head">
+    <h2>Корзина</h2>
+    <button class="modal-close" id="drawerCloseBtn">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

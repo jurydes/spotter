@@ -1,0 +1,622 @@
+/* ================= DESIGN TOKENS ================= */
+  :root{
+    --ink:#101012;        /* фон */
+    --surface:#1a1a1c;     /* панели/карточки */
+    --surface-2:#212123;   /* чуть светлее панель */
+    --paper:#ece8e0;       /* основной текст */
+    --paper-dim:#9a968d;   /* приглушённый текст на тёмном */
+    --accent:#131dff;      /* фирменный синий SPOTTER, сэмплирован из лого */
+    --accent-dim:#0e16c4;  /* синий для hover/active */
+    /* Фирменный синий на почти чёрном фоне даёт контраст всего 2.4:1 — мелкий
+       текст им читать невозможно. Поэтому для ТЕКСТА берём осветлённый оттенок
+       (около 7.5:1), а --accent оставляем для заливок и рамок, где под ним
+       светлые буквы и с контрастом всё в порядке. */
+    --accent-light:#8f9bff;
+    --steel:#82858f;       /* нейтральный холодный серый — метки/линии */
+    --warn:#ffb020;        /* функциональный цвет — только для "мало осталось" */
+    --line:#2b2b2e;        /* тонкие границы */
+    --radius:0px;
+
+    --f-display:'Unbounded', sans-serif;
+    --f-mono:'JetBrains Mono', monospace;
+    --f-body:'Manrope', sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--paper);
+    font-family:var(--f-body);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ================= ФОН: ЗЕРНО =================
+     Раньше здесь ещё было синее свечение под углами экрана (радиальный
+     градиент, медленно "дрейфующий" по фону) — типичный ход шаблонных
+     AI-сайтов. Убрали совсем: остаётся только плёночное зерно, оно не
+     кликабельно и лежит под контентом (header/main/footer подняты z-index'ом). */
+  body::after{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  header.nav, main, footer{position:relative;z-index:1;}
+  h1,h2,h3,h4{
+    font-family:var(--f-display);
+    font-weight:800;
+    letter-spacing:0;
+    margin:0;
+    text-transform:uppercase;
+    /* Unbounded — широкая и «тяжёлая» гарнитура: в несколько строк прописными
+       строки слипаются. 1.22 даёт воздух, но заголовок ещё читается как блок. */
+    line-height:1.22;
+  }
+  h1{font-weight:900;}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:var(--f-body);cursor:pointer;}
+  ::selection{background:var(--accent);color:var(--ink);}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px;}
+  .mono{font-family:var(--f-mono);}
+
+  /* ================= NAV ================= */
+  header.nav{
+    position:sticky;top:0;z-index:40;
+    background:rgba(16,16,18,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    display:flex;align-items:center;justify-content:space-between;
+    height:64px;
+  }
+  .logo{display:flex;align-items:center;}
+  .logo a{display:flex;align-items:center;transition:opacity .15s;}
+  .logo a:hover{opacity:0.75;}
+  .logo-img{height:24px;width:auto;display:block;}
+  nav.tabs{display:flex;gap:28px;}
+  nav.tabs button{
+    background:none;border:none;color:var(--paper-dim);
+    font-family:var(--f-mono);font-size:13px;letter-spacing:0.06em;
+    text-transform:uppercase;padding:8px 0;border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  nav.tabs button:hover{color:var(--paper);}
+  nav.tabs button.active{color:var(--paper);border-color:var(--accent);}
+  .cart-btn{
+    background:none;border:1px solid var(--line);color:var(--paper);
+    font-family:var(--f-mono);font-size:13px;padding:8px 14px;
+    display:flex;align-items:center;gap:8px;
+    transition:border-color .15s;
+  }
+  .cart-btn:hover{border-color:var(--steel);}
+  .cart-count{
+    background:var(--accent);color:var(--ink);font-weight:600;
+    min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;
+    font-size:11px;padding:0 4px;
+  }
+
+  @media (max-width:720px){
+    nav.tabs{display:none;}
+    .nav-inner{gap:12px;}
+  }
+  .mobile-tabs{
+    display:none;
+    border-top:1px solid var(--line);
+  }
+  .mobile-tabs .wrap{display:flex;gap:0;}
+  .mobile-tabs button{
+    flex:1;background:none;border:none;color:var(--paper-dim);
+    font-family:var(--f-mono);font-size:12px;text-transform:uppercase;
+    padding:12px 0;border-bottom:2px solid transparent;
+  }
+  .mobile-tabs button.active{color:var(--paper);border-color:var(--accent);}
+  @media (max-width:720px){.mobile-tabs{display:block;}}
+
+  /* ================= VIEWFINDER MOTIF ================= */
+  .viewfinder{position:relative;}
+  .viewfinder::before,.viewfinder::after,
+  .vf-tl,.vf-br{position:absolute;width:22px;height:22px;pointer-events:none;}
+  .vf-corner{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;border-width:0;}
+  /* Уголки прижаты к краю изнутри (0, а не -1px). При отрицательном сдвиге
+     они вылезали за пределы .ph-photo, у которого overflow:hidden, и рамка
+     срезалась: от двух пикселей оставался один, а на дробной ширине блока
+     справа не оставалось и его. */
+  .vf-tl{top:0;left:0;border-top-width:2px;border-left-width:2px;}
+  .vf-tr{top:0;right:0;border-top-width:2px;border-right-width:2px;}
+  .vf-bl{bottom:0;left:0;border-bottom-width:2px;border-left-width:2px;}
+  .vf-br{bottom:0;right:0;border-bottom-width:2px;border-right-width:2px;}
+
+  /* ================= PLACEHOLDER PHOTO ================= */
+  /* Плоский прямоугольник в реальном размере блока — без градиента, зерна и
+     подписи, чтобы пропорции карточек были видны как есть, до реальных фото. */
+  .ph-photo{position:relative;overflow:hidden;background:#000;}
+  /* Уголки видоискателя раньше были видны только на ховере — теперь они всегда
+     присутствуют приглушённым тоном и загораются синим при наведении. */
+  .vf-corner{border-color:rgba(236,232,224,0.22);transition:border-color .2s;}
+  .ph-photo img{transition:transform .45s cubic-bezier(.2,.7,.3,1);}
+  .ep-card:hover .ph-photo img,
+  .merch-card:hover .ph-photo img,
+  .hero-photo:hover .ph-photo img{transform:scale(1.035);}
+
+  /* Таймкод — реальная длительность выпуска, как в плеере */
+  .tc{
+    position:absolute;top:8px;right:8px;z-index:2;
+    font-family:var(--f-mono);font-size:11px;letter-spacing:0.04em;
+    color:var(--paper);background:rgba(8,8,10,0.72);
+    padding:3px 7px;backdrop-filter:blur(4px);
+  }
+
+  /* ================= HERO ================= */
+  .hero{
+    padding:clamp(40px,7vh,72px) 0;border-bottom:1px solid var(--line);
+    /* потолок по высоте — иначе на больших экранах блок висит в пустоте */
+    min-height:min(calc(100vh - 64px), 660px);display:flex;align-items:center;
+  }
+  /* .hero использует общую сетку .wrap (1160) — левый край совпадает с логотипом,
+     заголовками секций и футером. */
+  .hero-grid{
+    display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.3fr);
+    gap:clamp(28px,4vw,56px);align-items:center;width:100%;
+  }
+  .hero-text{min-width:0;} /* min-width:0 — чтобы длинные токены типа PRA(KILLA'GRAMM) не раздували колонку */
+  .hero-photo{width:100%;min-width:0;aspect-ratio:16/9;}
+  @media (max-width:860px){
+    .hero{min-height:0;padding:40px 0;}
+    .hero-grid{display:block;}
+    .hero-photo{margin-top:28px;}
+  }
+  .badge-rec{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--f-mono);font-size:12px;letter-spacing:0.08em;
+    color:var(--accent-light);margin-bottom:18px;
+  }
+  .badge-rec .dot{width:7px;height:7px;border-radius:50%;background:var(--accent-light);}
+  /* Кегль подбирает fitHeroTitle() в app.js (под самое длинное слово названия);
+     clamp ниже — значение до отработки скрипта, overflow-wrap — крайняя страховка,
+     чтобы заголовок ни при каких условиях не вылез под фото. */
+  .hero h1{
+    font-size:clamp(26px,3.2vw,44px);line-height:1.18;margin-bottom:16px;
+    overflow-wrap:anywhere;
+  }
+  .hero p.lead{color:var(--paper-dim);max-width:52ch;margin-bottom:26px;font-size:16px;font-family:var(--f-body);}
+  .btn{
+    display:inline-block;background:var(--accent);color:var(--paper);
+    font-family:var(--f-mono);font-size:13px;letter-spacing:0.04em;text-transform:uppercase;
+    padding:13px 22px;border:none;font-weight:700;
+    transition:background .15s;
+  }
+  .btn:hover{background:var(--accent-dim);}
+  .btn-outline{
+    display:inline-block;background:none;color:var(--paper);border:1px solid var(--line);
+    font-family:var(--f-mono);font-size:13px;letter-spacing:0.04em;text-transform:uppercase;
+    padding:12px 22px;transition:border-color .15s;
+  }
+  .btn-outline:hover{border-color:var(--steel);}
+  .hero-photo:hover .vf-corner{border-color:var(--accent);}
+  .btn{position:relative;overflow:hidden;}
+
+  /* ================= ТИКЕР — состав площадки бегущей строкой ================= */
+  .ticker{
+    position:relative;overflow:hidden;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    background:rgba(19,29,255,0.05);
+  }
+  .ticker-track{display:flex;width:max-content;animation:ticker-run 72s linear infinite;}
+  /* и span, и a — имена в строке стали ссылками на страницы участников */
+  .ticker-track > span,
+  .ticker-track > a{
+    font-family:var(--f-mono);font-size:12px;letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--steel);padding:11px 0;white-space:nowrap;
+  }
+  .ticker-track .sep{color:var(--accent-light);padding:11px 16px;}
+  .ticker:hover .ticker-track{animation-play-state:paused;}
+  @keyframes ticker-run{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+  .ticker::before,.ticker::after{
+    content:'';position:absolute;top:0;bottom:0;width:90px;z-index:2;pointer-events:none;
+  }
+  .ticker::before{left:0;background:linear-gradient(90deg,var(--ink),rgba(16,16,18,0));}
+  .ticker::after{right:0;background:linear-gradient(270deg,var(--ink),rgba(16,16,18,0));}
+
+  @media (prefers-reduced-motion: reduce){
+    body::before{animation:none;}
+  }
+
+  /* ================= SECTION SHARED ================= */
+  section{padding:64px 0;border-bottom:1px solid var(--line);}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:32px;flex-wrap:wrap;}
+  .section-head h2{font-size:clamp(24px,3.4vw,34px);}
+  .section-note{font-family:var(--f-mono);font-size:12px;color:var(--paper-dim);text-transform:none;letter-spacing:0.02em;}
+
+  /* about */
+  .about-cols{display:grid;grid-template-columns:220px 1fr;gap:32px;}
+  @media (max-width:640px){.about-cols{grid-template-columns:1fr;}}
+  .about-cols h2{font-size:22px;}
+  .about-cols p{color:var(--paper-dim);max-width:66ch;font-family:var(--f-body);margin-bottom:14px;}
+  .about-quote{
+    font-family:var(--f-display);font-weight:800;text-transform:uppercase;
+    font-size:clamp(20px,2.6vw,28px);color:var(--accent-light);max-width:36ch;
+    margin-top:18px;line-height:1.2;
+  }
+
+  /* ================= EPISODES — крупные карточки с превью ================= */
+  .chapter-head{margin:0 0 18px;}
+  .chapter-head:not(:first-child){margin-top:48px;}
+  .chapter-head h3{font-family:var(--f-mono);font-weight:600;font-size:13px;color:var(--steel);letter-spacing:0.08em;}
+  .ep-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;}
+  @media (max-width:760px){.ep-grid{grid-template-columns:1fr;}}
+  .ep-card{
+    border:1px solid var(--line);
+    transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+  }
+  .ep-card:hover{
+    transform:translateY(-3px);border-color:var(--steel);
+    box-shadow:0 16px 40px -20px rgba(0,0,0,0.9);
+  }
+  .ep-card .ep-cover{width:100%;aspect-ratio:16/9;}
+  .ep-card:hover .vf-corner{border-color:var(--accent);}
+  /* Номер выпуска и просмотры — по разным краям одной строки, а не слитно
+     через точку: так оба числа сразу считываются взглядом, а не читаются
+     как одно предложение. */
+  .ep-meta{
+    display:flex;justify-content:space-between;align-items:baseline;
+    padding:12px 22px;border-bottom:1px dashed var(--line);
+    font-family:var(--f-mono);font-size:12px;letter-spacing:0.04em;
+  }
+  .ep-meta span:first-child{color:var(--accent-light);}
+  .ep-meta span:last-child{color:var(--paper-dim);}
+  .ep-card .ep-body{padding:20px 22px 22px;}
+  .ep-body h3{font-size:23px;margin-bottom:10px;line-height:1.2;}
+  .ep-body .artists{font-family:var(--f-mono);font-size:12px;color:var(--steel);letter-spacing:0.02em;margin-bottom:10px;text-transform:uppercase;}
+  .ep-body p{color:var(--paper-dim);font-size:14px;max-width:60ch;font-family:var(--f-body);}
+  .ep-watch{display:inline-block;margin-top:12px;font-family:var(--f-mono);font-size:12px;color:var(--paper);border-bottom:1px solid var(--accent);padding-bottom:2px;}
+  .ep-watch:hover{color:var(--accent-light);}
+
+  /* ================= СОСТАВ ВЫПУСКА С ПОДПИСЯМИ ================= */
+  .lineup-bios{list-style:none;margin:0 0 4px;padding:0;max-width:64ch;}
+  .lineup-bios li{
+    font-size:14px;line-height:1.5;color:var(--paper-dim);
+    font-family:var(--f-body);margin-bottom:6px;
+  }
+  /* Имя моноширинным капсом — как в остальных списках участников, чтобы
+     строка читалась «имя — кто это», а не сплошным предложением. */
+  .lineup-bios .artist-link{
+    font-family:var(--f-mono);font-size:12px;letter-spacing:0.02em;
+    text-transform:uppercase;color:var(--paper);
+  }
+  .lineup-bios .artist-link:hover{color:var(--accent-light);}
+  .lineup-bios .bio-dash{color:var(--steel);margin:0 6px;}
+  .lineup-rest{margin-top:10px;}
+  .lineup-rest-label{
+    font-family:var(--f-mono);font-size:11px;color:var(--paper-dim);
+    text-transform:uppercase;letter-spacing:0.06em;margin-right:8px;
+  }
+  /* Блоки состава в герое одинаково прижаты друг к другу, а воздух перед
+     кнопкой «Смотреть выпуск» задаётся самой кнопкой — иначе отступ пришлось
+     бы каждый раз угадывать, есть ли под списком строка «за пультом». */
+  .hero .lineup-bios,
+  .hero .lineup-rest{margin-bottom:10px;}
+  .hero-text .btn{margin-top:14px;}
+  .artist-bio{margin-bottom:22px;max-width:60ch;}
+
+  /* ================= ССЫЛКИ НА УЧАСТНИКОВ ================= */
+  .artist-link{color:var(--steel);transition:color .15s;}
+  .artist-link:hover{color:var(--accent-light);}
+  .artist-sep{color:var(--line);padding:0 6px;}
+  .artist-count{color:var(--paper-dim);font-size:11px;}
+  .artist-together{margin-bottom:28px;}
+  .artist-together .artists{font-family:var(--f-mono);font-size:12px;text-transform:uppercase;letter-spacing:0.02em;}
+  .back-link{
+    display:inline-block;font-family:var(--f-mono);font-size:12px;color:var(--paper-dim);
+    margin-bottom:18px;transition:color .15s;
+  }
+  .back-link:hover{color:var(--paper);}
+  .ticker-track a{color:var(--steel);transition:color .15s;}
+  .ticker-track a:hover{color:var(--accent-light);}
+
+  /* ================= ДЕЙСТВИЯ В КАРТОЧКЕ ВЫПУСКА ================= */
+  .ep-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:12px;}
+  .ep-actions .ep-watch{margin-top:0;}
+  .ep-share{
+    background:none;border:none;padding:0;color:var(--paper-dim);
+    font-family:var(--f-mono);font-size:12px;transition:color .15s;
+  }
+  .ep-share:hover{color:var(--paper);}
+  .ep-share.flash{color:var(--accent-light);}
+  .btn-sm{padding:8px 14px;font-size:11px;}
+  /* подсветка выпуска, на который ведёт ссылка «поделиться» или «случайный
+     выпуск» — кольцо с зазором от карточки (а не линия прямо по её краю):
+     иначе, особенно на мобильном во всю ширину экрана, подсветка сливалась
+     с самой рамкой карточки и выглядела как её обычная граница. */
+  .ep-card.ep-focused{
+    border-color:var(--accent);
+    box-shadow:0 0 0 7px var(--ink), 0 0 0 9px var(--accent);
+  }
+  @media (max-width:560px){
+    .ep-card.ep-focused{box-shadow:0 0 0 6px var(--ink), 0 0 0 8px var(--accent);}
+  }
+
+  /* ================= АНОНС ================= */
+  .upcoming-section{padding:44px 0;}
+  .upcoming{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;}
+  .upcoming-tag{
+    font-size:11px;letter-spacing:0.12em;color:var(--accent-light);
+    border:1px solid var(--accent);padding:4px 9px;flex-shrink:0;margin-top:4px;
+  }
+  .upcoming-body{min-width:0;flex:1;}
+  .upcoming-body h2{font-size:clamp(20px,2.6vw,30px);margin-bottom:8px;}
+  .upcoming-meta{font-size:12px;color:var(--paper-dim);margin-bottom:10px;letter-spacing:0.04em;}
+  .upcoming-body .artists{font-family:var(--f-mono);font-size:12px;text-transform:uppercase;margin-bottom:12px;}
+  .upcoming-body .lead{margin-bottom:16px;}
+
+  /* ================= MERCH ================= */
+  /* Порядок выпусков и «случайный выпуск» — справа от заголовка раздела */
+  .head-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  /* Переключатель сортировки. Сделан рамкой и заливкой, а не просто текстом:
+     без этого он читается как подпись и его буквально не находят взглядом. */
+  .sorts{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .sorts-label{font-size:11px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:0.06em;}
+  .sorts-group{display:flex;border:1px solid var(--line);}
+  .sorts-group button{
+    background:none;border:none;color:var(--paper-dim);font-family:var(--f-mono);
+    font-size:12px;letter-spacing:0.04em;padding:9px 14px;white-space:nowrap;
+    transition:color .15s, background .15s;
+  }
+  .sorts-group button + button{border-left:1px solid var(--line);}
+  .sorts-group button:hover{color:var(--paper);background:var(--surface);}
+  .sorts-group button.active{color:var(--paper);background:var(--accent);font-weight:700;}
+  .sorts-group button.active:hover{background:var(--accent);}
+  .filters{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:28px;}
+  .filters button{
+    background:none;border:none;color:var(--paper-dim);font-family:var(--f-mono);
+    font-size:13px;text-transform:uppercase;letter-spacing:0.04em;padding:4px 0;
+    border-bottom:2px solid transparent;
+  }
+  .filters button.active{color:var(--paper);border-color:var(--accent);}
+
+  .merch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
+  @media (max-width:860px){.merch-grid{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:560px){.merch-grid{grid-template-columns:1fr;}}
+  .merch-card{
+    background:var(--ink);border:1px solid var(--line);padding:0;display:flex;flex-direction:column;cursor:pointer;
+    position:relative;
+    transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+  }
+  .merch-card:hover{
+    transform:translateY(-3px);border-color:var(--steel);
+    box-shadow:0 16px 40px -20px rgba(0,0,0,0.9);
+  }
+  .merch-card .ph-photo{aspect-ratio:4/5;}
+  .merch-card:hover .vf-corner{border-color:var(--accent);}
+  .merch-card .card-body{padding:18px;flex:1;display:flex;flex-direction:column;gap:6px;}
+  .buy-btn{width:100%;text-align:center;margin-top:10px;padding:11px 6px;font-size:11px;letter-spacing:0.02em;}
+  .buy-btn:disabled{background:var(--surface-2);color:var(--paper-dim);cursor:not-allowed;}
+  .buy-btn:disabled:hover{background:var(--surface-2);}
+  .merch-card h3{font-size:19px;}
+  /* Цена — то, ради чего человек смотрит на карточку: раньше она была
+     приглушённого цвета и терялась сильнее, чем название товара. */
+  .merch-card .price{font-family:var(--f-mono);font-size:16px;font-weight:700;color:var(--paper);}
+  .merch-card .stock-flag{font-family:var(--f-mono);font-size:11px;letter-spacing:0.03em;text-transform:uppercase;}
+  .stock-ok{color:var(--steel);}
+  .stock-low{color:var(--warn);}
+  .stock-out{color:var(--paper-dim);}
+  .popular-tag{
+    position:absolute;top:8px;left:8px;z-index:2;
+    background:var(--accent);color:var(--paper);font-family:var(--f-mono);font-size:10px;
+    padding:3px 7px;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;
+  }
+
+  /* ================= PRODUCT MODAL ================= */
+  .overlay{
+    position:fixed;inset:0;background:rgba(8,8,9,0.72);z-index:80;
+    display:none;align-items:flex-start;justify-content:center;
+    padding:40px 20px;overflow-y:auto;
+  }
+
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--ink);border:1px solid var(--line);max-width:840px;width:100%;
+    display:grid;grid-template-columns:1fr 1fr;min-width:0;position:relative;
+  }
+  @media (max-width:680px){.modal{grid-template-columns:1fr;}}
+  @media (max-width:480px){.overlay{padding:24px 12px;}}
+  .modal .ph-photo{aspect-ratio:4/5;}
+  .modal-info{padding:32px;display:flex;flex-direction:column;gap:14px;}
+  /* Раньше кнопка лежала внутри .modal-info и на мобильном, где колонки
+     складываются друг под друга, оказывалась под фото вместо угла всего
+     окна. Теперь она сама — прямой ребёнок .modal (которая position:relative),
+     поэтому держится в правом верхнем углу независимо от раскладки колонок.
+     Тёмная подложка нужна: раньше крестик читался на фоне карточки, а теперь
+     часто лежит поверх фото товара. */
+  .modal-close{
+    position:absolute;top:10px;right:10px;z-index:3;
+    background:rgba(8,8,9,0.6);border:none;color:var(--paper);
+    font-family:var(--f-mono);font-size:20px;line-height:1;padding:6px 10px;
+  }
+  .modal-close:hover{color:var(--accent-light);}
+  .modal-info h2{font-size:26px;}
+  .modal-info .price{font-family:var(--f-mono);font-size:18px;color:var(--accent-light);}
+  .modal-info p.desc{color:var(--paper-dim);font-size:14px;max-width:44ch;}
+  .size-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .size-btn{
+    border:1px solid var(--line);background:none;color:var(--paper);
+    font-family:var(--f-mono);font-size:13px;padding:8px 14px;min-width:44px;
+  }
+  .size-btn.active{border-color:var(--accent-light);color:var(--accent-light);}
+  /* Распроданный размер остаётся кликабельным — по клику предлагаем
+     сообщить о поступлении, поэтому не disabled, а приглушённый вид. */
+  .size-btn.sold-out{color:var(--paper-dim);text-decoration:line-through;opacity:0.55;}
+  .size-btn.sold-out.active{border-color:var(--warn);color:var(--warn);opacity:1;}
+
+  /* галерея фото товара */
+  .modal-media{display:flex;flex-direction:column;min-width:0;}
+  .modal-media .ph-photo{flex:1;}
+  /* Миниатюр может быть больше, чем помещается по ширине узкого экрана —
+     без overflow-x:auto и min-width:0 у родителей ряд просто раздвигал
+     всю карточку товара шире экрана и создавал горизонтальный скролл
+     всей страницы. */
+  .thumb-row{display:flex;gap:8px;padding:8px;background:var(--ink);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .thumb{
+    width:56px;height:70px;padding:0;border:1px solid var(--line);background:none;
+    overflow:hidden;flex-shrink:0;transition:border-color .15s;
+  }
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb:hover{border-color:var(--steel);}
+  .thumb.active{border-color:var(--accent);}
+
+  /* кнопка-обёртка вокруг главного фото: сама выглядит как фото,
+     подсказка «увеличить» проявляется при наведении */
+  .zoom-open{
+    display:block;position:relative;flex:1;padding:0;border:none;background:none;
+    cursor:zoom-in;text-align:left;width:100%;
+  }
+  .zoom-open .ph-photo{height:100%;}
+  .zoom-hint{
+    position:absolute;right:8px;bottom:8px;z-index:2;
+    background:rgba(8,8,9,0.78);color:var(--paper);
+    font-size:11px;letter-spacing:0.06em;text-transform:uppercase;
+    padding:5px 9px;opacity:0;transition:opacity .15s;pointer-events:none;
+  }
+  .zoom-open:hover .zoom-hint,
+  .zoom-open:focus-visible .zoom-hint{opacity:1;}
+  /* на тач-устройствах наведения нет — подсказку показываем всегда */
+  @media (hover:none){ .zoom-hint{opacity:1;} }
+
+  /* ================= ФОТО НА ВЕСЬ ЭКРАН ================= */
+  /* Выше карточки товара (80) и корзины (95): открывается поверх них. */
+  .lightbox{
+    position:fixed;inset:0;background:rgba(8,8,9,0.97);z-index:120;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;padding:56px 16px 64px;
+  }
+  .lightbox.open{display:flex;}
+  .lb-stage{
+    max-width:min(1100px,100%);max-height:100%;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;cursor:zoom-in;
+    /* без этого браузерный пинч-зум/пан на телефоне включался одновременно
+       с нашим transform:scale() — картинка «плыла» и масштабировалась
+       вдвойне, вперемешку с собственным жестом браузера. */
+    touch-action:none;
+  }
+  .lb-stage.zoomed{cursor:zoom-out;}
+  .lb-stage img{
+    max-width:100%;max-height:calc(100vh - 120px);
+    object-fit:contain;display:block;user-select:none;
+    transition:transform .18s ease-out;
+  }
+  .lb-close{
+    position:absolute;top:12px;right:14px;
+    background:none;border:none;color:var(--paper);font-size:34px;line-height:1;
+    padding:4px 10px;cursor:pointer;opacity:0.75;transition:opacity .15s;
+  }
+  .lb-close:hover{opacity:1;}
+  .lb-nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    background:rgba(8,8,9,0.6);border:1px solid var(--line);color:var(--paper);
+    font-size:30px;line-height:1;width:44px;height:64px;cursor:pointer;
+    transition:border-color .15s,background .15s;
+  }
+  .lb-nav:hover{border-color:var(--accent);background:rgba(8,8,9,0.85);}
+  .lb-prev{left:12px;}
+  .lb-next{right:12px;}
+  .lb-bar{
+    position:absolute;left:0;right:0;bottom:18px;text-align:center;
+    font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--paper-dim);
+  }
+  @media (max-width:600px){
+    .lightbox{padding:48px 8px 56px;}
+    .lb-nav{width:38px;height:54px;font-size:24px;}
+  }
+
+  /* сообщить о поступлении */
+  .restock{border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .restock-title{font-size:12px;color:var(--warn);letter-spacing:0.04em;text-transform:uppercase;}
+  .restock-note{font-size:13px;color:var(--paper-dim);margin:0;font-family:var(--f-body);}
+
+  /* экран сформированного заказа */
+  .order-done{padding:18px 0;}
+  .order-done h3{font-size:20px;margin-bottom:10px;}
+  .order-hint{font-size:13px;color:var(--paper-dim);margin-bottom:14px;font-family:var(--f-body);}
+  .order-text{
+    font-family:var(--f-mono);font-size:12px;line-height:1.6;color:var(--paper);
+    background:var(--surface);border:1px solid var(--line);padding:14px;
+    white-space:pre-wrap;word-break:break-word;margin:0;
+  }
+  .link-btn{
+    background:none;border:none;color:var(--paper-dim);font-family:var(--f-mono);
+    font-size:12px;padding:6px 0;text-decoration:underline;
+  }
+  .link-btn:hover{color:var(--paper);}
+  .qty-row{display:flex;align-items:center;gap:14px;margin-top:4px;}
+  .qty-btn{width:32px;height:32px;border:1px solid var(--line);background:none;color:var(--paper);font-family:var(--f-mono);font-size:16px;}
+  .qty-btn:hover{border-color:var(--steel);}
+  .qty-btn:disabled{color:var(--paper-dim);opacity:0.4;cursor:not-allowed;}
+  .qty-btn:disabled:hover{border-color:var(--line);}
+  .qty-val{font-family:var(--f-mono);font-size:15px;min-width:16px;text-align:center;}
+  .stock-note{font-family:var(--f-mono);font-size:12px;color:var(--paper-dim);}
+  .add-msg{font-family:var(--f-mono);font-size:12px;color:var(--accent-light);min-height:16px;}
+
+  /* ================= CART DRAWER ================= */
+  .drawer-overlay{
+    position:fixed;inset:0;background:rgba(8,8,9,0.6);z-index:90;
+    display:none;
+  }
+  .drawer-overlay.open{display:block;}
+  .drawer{
+    position:fixed;top:0;right:0;bottom:0;width:420px;max-width:92vw;
+    background:var(--ink);border-left:1px solid var(--line);z-index:95;
+    transform:translateX(100%);transition:transform .25s ease;
+    display:flex;flex-direction:column;
+  }
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:20px 22px;border-bottom:1px solid var(--line);
+  }
+  .drawer-head h2{font-size:18px;}
+  .drawer-body{flex:1;overflow-y:auto;padding:0 22px;}
+  .cart-item{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid var(--line);}
+  .cart-item .ph-photo{width:64px;height:64px;flex-shrink:0;}
+  .cart-item .ci-info{flex:1;}
+  .cart-item h4{font-family:var(--f-body);font-weight:700;font-size:14px;text-transform:none;margin-bottom:2px;}
+  .cart-item .ci-meta{font-family:var(--f-mono);font-size:11px;color:var(--paper-dim);text-transform:uppercase;margin-bottom:8px;}
+  .cart-item .ci-controls{display:flex;align-items:center;gap:10px;}
+  .cart-item .remove{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--paper-dim);background:none;border:none;text-transform:uppercase;}
+  .cart-item .remove:hover{color:var(--accent-light);}
+  .cart-item .ci-price{font-family:var(--f-mono);font-size:13px;white-space:nowrap;}
+  .empty-cart{color:var(--paper-dim);font-family:var(--f-mono);font-size:13px;padding:40px 0;text-align:center;}
+
+  .drawer-foot{border-top:1px solid var(--line);padding:20px 22px 26px;display:flex;flex-direction:column;gap:14px;}
+  .total-row{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:16px;}
+  .total-row b{font-family:var(--f-body);font-weight:700;text-transform:uppercase;font-size:13px;}
+
+  .field-label{font-family:var(--f-mono);font-size:11px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:6px;}
+  .radio-row{display:flex;gap:16px;margin-bottom:12px;}
+  .radio-opt{display:flex;align-items:center;gap:6px;font-size:13px;font-family:var(--f-mono);color:var(--paper);}
+  .radio-opt input{accent-color:var(--accent);}
+  textarea, input[type=text]{
+    width:100%;background:var(--surface);border:1px solid var(--line);color:var(--paper);
+    font-family:var(--f-body);font-size:14px;padding:10px 12px;resize:vertical;
+  }
+  textarea:focus, input[type=text]:focus{border-color:var(--steel);outline:none;}
+  .checkout-error{font-family:var(--f-mono);font-size:12px;color:var(--accent-light);display:none;}
+  .checkout-error.show{display:block;}
+  .btn-full{width:100%;text-align:center;}
+
+  /* ================= FOOTER ================= */
+  footer{padding:36px 0;}
+  .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  footer a{font-family:var(--f-mono);font-size:12px;color:var(--paper-dim);}
+  footer a:hover{color:var(--accent-light);}
+  .footer-links{display:flex;gap:20px;}
+
+  .hidden{display:none !important;}
+  

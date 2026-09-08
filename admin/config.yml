@@ -1,0 +1,72 @@
+backend:
+  name: git-gateway
+  branch: main
+
+# Прод-сайт лежит в корне репозитория без сборки — редактируем файлы напрямую.
+media_folder: "assets/uploads"
+public_folder: "assets/uploads"
+
+collections:
+  - name: "episodes"
+    label: "Выпуски"
+    label_singular: "Выпуск"
+    description: "Каждая карточка — один ролик SPOTTER LIVE. Список одним файлом data/episodes.json."
+    files:
+      - name: "episodes"
+        label: "Выпуски"
+        file: "data/episodes.json"
+        fields:
+          - label: "Выпуски"
+            name: "episodes"
+            widget: "list"
+            summary: "{{title}}"
+            fields:
+              - {label: "Заголовок (состав через запятую, DJ — через x)", name: "title", widget: "string", hint: "Например: REDO, TILLS x DJ CHAPO — так подпись выглядит в списке выпусков."}
+              - {label: "Участники", name: "artists", widget: "list", field: {label: "Имя", name: "artist", widget: "string"}, hint: "По одному имени на артиста, в порядке выступления. Диджея тоже добавь сюда последним."}
+              - {label: "Диджей (как в поле «Участники»)", name: "dj", widget: "string", required: false, hint: "Имя должно точно совпадать с одной из строк выше — иначе подпись «за пультом» не сработает."}
+              - {label: "Ссылка на YouTube", name: "youtubeUrl", widget: "string", hint: "Полный адрес вида https://www.youtube.com/watch?v=..."}
+              - {label: "Длительность", name: "duration", widget: "string", hint: "Формат мм:сс, например 14:45 — берётся из плеера YouTube."}
+              - {label: "Обложка", name: "cover", widget: "image", media_folder: "/assets/episodes", public_folder: "/assets/episodes"}
+              - {label: "Отдельный текст о выпуске", name: "description", widget: "text", required: false, hint: "Заполняй, только если про выпуск есть что сказать отдельно от состава — обычно оставляй пустым."}
+              - {label: "Часть (chapter)", name: "chapter", widget: "number", value_type: "int", required: false, hint: "1 — первый сезон, 2 — CHAPTER II. Пусто — для отдельностоящих роликов вроде сольников."}
+              - {label: "Номер внутри части", name: "number", widget: "number", value_type: "int", required: false, hint: "Пусто — для отдельностоящих роликов вроде сольников."}
+              - {label: "Отдельностоящий ролик (не часть сезона)", name: "standalone", widget: "boolean", default: false, hint: "Включи и оставь «Часть»/«Номер» пустыми для роликов вроде сольников."}
+
+  - name: "merch"
+    label: "Мерч"
+    label_singular: "Товар"
+    description: "Каждая карточка — товар в разделе «Мерч». Список одним файлом data/merch.json. Порядок в списке = порядок карточек на сайте, последний товар показывается на главной как «Новый дроп»."
+    files:
+      - name: "merch"
+        label: "Товары"
+        file: "data/merch.json"
+        fields:
+          - label: "Товары"
+            name: "merch"
+            widget: "list"
+            summary: "{{name}}"
+            fields:
+              - {label: "Название", name: "name", widget: "string"}
+              - label: "Идентификатор (id)"
+                name: "id"
+                widget: "string"
+                hint: "Только латиница, цифры и дефисы, без пробелов, например spotter-blue. Меняй только у нового товара — у существующего трогать нельзя, на него завязана корзина."
+              - {label: "Категория", name: "category", widget: "string", hint: "Пиши точно как у других товаров того же типа — «Футболки» или «Худи» (или заведи новую, если это правда новый раздел)."}
+              - {label: "Цена, ₽", name: "price", widget: "number", value_type: "int"}
+              - {label: "Описание", name: "description", widget: "text"}
+              - {label: "Показывать как «Популярное»", name: "popular", widget: "boolean", default: false, hint: "Отметь максимум у одного товара — он выделяется на главной."}
+              - {label: "Размеры в продаже", name: "sizes", widget: "list", field: {label: "Размер", name: "size", widget: "string"}, hint: "Обычно S, M, L, XL — по одному размеру на строку, в этом же порядке."}
+              - label: "Остатки по размеру"
+                name: "stock"
+                widget: "object"
+                hint: "Сколько штук есть в наличии. 0 — размер закончился, но остаётся в списке (просто без возможности заказать)."
+                fields:
+                  - {label: "S", name: "S", widget: "number", value_type: "int", default: 0}
+                  - {label: "M", name: "M", widget: "number", value_type: "int", default: 0}
+                  - {label: "L", name: "L", widget: "number", value_type: "int", default: 0}
+                  - {label: "XL", name: "XL", widget: "number", value_type: "int", default: 0}
+              - label: "Фотографии"
+                name: "images"
+                widget: "list"
+                field: {label: "Фото", name: "image", widget: "image", media_folder: "/assets/merch", public_folder: "/assets/merch"}
+                hint: "Первое фото — главное, показывается в списке товаров. Съёмку на модели ставь первой, предметное фото — последним."
