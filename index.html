@@ -81,6 +81,20 @@
   <div class="drawer-foot" id="drawerFoot"></div>
 </div>
 
+<!-- Только для писем от Netlify Identity (приглашение админа, сброс пароля):
+     такая ссылка ведёт на корень сайта с токеном в адресе, и без этого
+     виджета здесь страница не может его обработать — подтверждение зависает
+     на "Email not confirmed". Обычным посетителям виджет ничего не показывает. -->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script>
+  if (window.netlifyIdentity) {
+    window.netlifyIdentity.on('init', user => {
+      if (!user) {
+        window.netlifyIdentity.on('login', () => { document.location.href = '/admin/'; });
+      }
+    });
+  }
+</script>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 </body>
