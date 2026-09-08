@@ -1,104 +1,196 @@
 {
-"merch": [
-  {
-    "id": "rewinding-riddims",
-    "name": "Футболка REWINDING RIDDIMS",
-    "category": "Футболки",
-    "price": 3490,
-    "description": "Оверсайз-футболка, белая. Принт спереди: рукопожатие и логотип REWINDING RIDDIMS.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": true,
-    "images": ["assets/merch/rewinding-riddims.jpg"]
-  },
-  {
-    "id": "spotter-blue",
-    "name": "Футболка SPOTTER Blue",
-    "category": "Футболки",
-    "price": 3490,
-    "description": "Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в синем градиенте.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": [
-      "assets/merch/spotter-blue-1.jpg",
-      "assets/merch/spotter-blue-2.jpg",
-      "assets/merch/spotter-blue-3.jpg",
-      "assets/merch/spotter-blue-4.jpg",
-      "assets/merch/spotter-blue-5.jpg",
-      "assets/merch/spotter-blue.jpg"
-    ]
-  },
-  {
-    "id": "spotter-logo-pink",
-    "name": "Футболка SPOTTER Logo Pink",
-    "category": "Футболки",
-    "price": 3499,
-    "description": "Футболка, белая. Принт спереди: логотип SPOTTER в розовом градиенте.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": [
-      "assets/merch/spotter-pink-1.jpg",
-      "assets/merch/spotter-pink-2.jpg",
-      "assets/merch/spotter-pink-3.jpg",
-      "assets/merch/spotter-logo-pink.jpg"
-    ]
-  },
-  {
-    "id": "spotter-green",
-    "name": "Футболка SPOTTER Green",
-    "category": "Футболки",
-    "price": 3490,
-    "description": "Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в зелёном градиенте.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": ["assets/merch/spotter-green.jpg"]
-  },
-  {
-    "id": "rewinding-business-black",
-    "name": "Футболка REWIND BUSINESS Black",
-    "category": "Футболки",
-    "price": 3499,
-    "description": "Футболка, чёрная. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": ["assets/merch/rewinding-business-black.jpg"]
-  },
-  {
-    "id": "rewinding-business-white",
-    "name": "Футболка REWIND BUSINESS White",
-    "category": "Футболки",
-    "price": 3499,
-    "description": "Футболка, белая. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": ["assets/merch/rewinding-business-white.jpg"]
-  },
-  {
-    "id": "spotter-logo-white",
-    "name": "Футболка SPOTTER Logo",
-    "category": "Футболки",
-    "price": 3499,
-    "description": "Футболка, белая. Принт спереди: чёрный логотип SPOTTER.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": ["assets/merch/spotter-logo-white.jpg"]
-  },
-  {
-    "id": "spotter-hoodie-black",
-    "name": "Худи SPOTTER",
-    "category": "Худи",
-    "price": 5999,
-    "description": "Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.",
-    "sizes": ["S", "M", "L", "XL"],
-    "stock": { "S": 6, "M": 8, "L": 6, "XL": 3 },
-    "popular": false,
-    "images": ["assets/merch/spotter-hoodie-black.jpg"]
-  }
-]
+  "merch": [
+    {
+      "price": 3490,
+      "name": "Футболка REWINDING RIDDIMS",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/rewinding-riddims.jpg"
+      ],
+      "popular": true,
+      "id": "rewinding-riddims",
+      "description": "Оверсайз-футболка, белая. Принт спереди: рукопожатие и логотип REWINDING RIDDIMS.",
+      "category": "Футболки"
+    },
+    {
+      "price": 3490,
+      "name": "Футболка SPOTTER Blue",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/spotter-blue-1.jpg",
+        "assets/merch/spotter-blue-2.jpg",
+        "assets/merch/spotter-blue-3.jpg",
+        "assets/merch/spotter-blue-4.jpg",
+        "assets/merch/spotter-blue-5.jpg",
+        "assets/merch/spotter-blue.jpg"
+      ],
+      "popular": false,
+      "id": "spotter-blue",
+      "description": "Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в синем градиенте.",
+      "category": "Футболки"
+    },
+    {
+      "price": 3499,
+      "name": "Футболка SPOTTER Logo Pink",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/spotter-pink-1.jpg",
+        "assets/merch/spotter-pink-2.jpg",
+        "assets/merch/spotter-pink-3.jpg",
+        "assets/merch/spotter-logo-pink.jpg"
+      ],
+      "popular": false,
+      "id": "spotter-logo-pink",
+      "description": "Футболка, белая. Принт спереди: логотип SPOTTER в розовом градиенте.",
+      "category": "Футболки"
+    },
+    {
+      "price": 3490,
+      "name": "Футболка SPOTTER Green",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/spotter-green.jpg"
+      ],
+      "popular": false,
+      "id": "spotter-green",
+      "description": "Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в зелёном градиенте.",
+      "category": "Футболки"
+    },
+    {
+      "price": 3499,
+      "name": "Футболка REWIND BUSINESS Black",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/rewinding-business-black.jpg"
+      ],
+      "popular": false,
+      "id": "rewinding-business-black",
+      "description": "Футболка, чёрная. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.",
+      "category": "Футболки"
+    },
+    {
+      "price": 3499,
+      "name": "Футболка REWIND BUSINESS White",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/rewinding-business-white.jpg"
+      ],
+      "popular": false,
+      "id": "rewinding-business-white",
+      "description": "Футболка, белая. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.",
+      "category": "Футболки"
+    },
+    {
+      "price": 3499,
+      "name": "Футболка SPOTTER Logo",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 6,
+        "M": 8,
+        "L": 6,
+        "XL": 3
+      },
+      "images": [
+        "assets/merch/spotter-logo-white.jpg"
+      ],
+      "popular": false,
+      "id": "spotter-logo-white",
+      "description": "Футболка, белая. Принт спереди: чёрный логотип SPOTTER.",
+      "category": "Футболки"
+    },
+    {
+      "price": 5999,
+      "name": "Худи SPOTTER",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": {
+        "S": 0,
+        "M": 0,
+        "L": 0,
+        "XL": 0
+      },
+      "images": [
+        "assets/merch/spotter-hoodie-black.jpg"
+      ],
+      "popular": false,
+      "id": "spotter-hoodie-black",
+      "description": "Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.",
+      "category": "Худи"
+    }
+  ]
 }
