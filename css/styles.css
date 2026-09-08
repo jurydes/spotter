@@ -428,6 +428,11 @@
   .modal{
     background:var(--ink);border:1px solid var(--line);max-width:840px;width:100%;
     display:grid;grid-template-columns:1fr 1fr;min-width:0;position:relative;
+    /* Без этого колонки растягиваются на высоту таблицы (align-items:stretch
+       по умолчанию), а фото — height:100% + aspect-ratio — тогда считает
+       свою ширину от НАВЯЗАННОЙ высоты и раздувается шире своей колонки,
+       стоит инфоблоку стать выше (например, из-за блока предзаказа). */
+    align-items:start;
   }
   @media (max-width:680px){.modal{grid-template-columns:1fr;}}
   @media (max-width:480px){.overlay{padding:24px 12px;}}
