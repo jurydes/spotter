@@ -217,22 +217,6 @@
       "cover": "assets/episodes/standalone-redo-s1.jpg",
       "title": "SPOTTER - REDO /s1",
       "description": "Самый первый выпуск SPOTTER, сделанный задолго до создания формата SPOTTER LIVE, в котором REDO исполняет трек PANDORA BLOCK."
-    },
-    {
-      "standalone": false,
-      "dj": "DJ CHAPO",
-      "number": 1,
-      "artists": [
-        "Валера",
-        "Юра",
-        "Матвей Николаев ",
-        "DJ CHAPO"
-      ],
-      "youtubeUrl": "https://youtu.be/RQcJe7P_1dk?si=MLn6UTm2TISQ_Mwv",
-      "chapter": 3,
-      "duration": "6:67",
-      "cover": "/assets/episodes/не-толкайтесь.png",
-      "title": "Юра, Валера, Матвей Николаев x DJ CHAPO"
     }
   ]
 }
