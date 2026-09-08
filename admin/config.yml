@@ -28,8 +28,8 @@ collections:
               - {label: "Длительность", name: "duration", widget: "string", hint: "Формат мм:сс, например 14:45 — берётся из плеера YouTube."}
               - {label: "Обложка", name: "cover", widget: "image", media_folder: "/assets/episodes", public_folder: "/assets/episodes"}
               - {label: "Отдельный текст о выпуске", name: "description", widget: "text", required: false, hint: "Заполняй, только если про выпуск есть что сказать отдельно от состава — обычно оставляй пустым."}
-              - {label: "Часть (chapter)", name: "chapter", widget: "number", value_type: "int", required: false, hint: "1 — первый сезон, 2 — CHAPTER II. Пусто — для отдельностоящих роликов вроде сольников."}
-              - {label: "Номер внутри части", name: "number", widget: "number", value_type: "int", required: false, hint: "Пусто — для отдельностоящих роликов вроде сольников."}
+              - {label: "Часть (chapter)", name: "chapter", widget: "number", value_type: "int", required: false, hint: "1 — первый сезон, 2 — CHAPTER II, 3 — будет CHAPTER III и появится в списке сам, без правок кода. Пусто — для отдельностоящих роликов вроде сольников."}
+              - {label: "Номер внутри части", name: "number", widget: "number", value_type: "int", required: false, hint: "Порядок в списке выше (где можно перетаскивать карточки) на сайт не влияет — сортировка идёт по этому полю. Самый большой номер в самой новой части автоматически становится «последним выпуском» на главной. Пусто — для отдельностоящих роликов вроде сольников."}
               - {label: "Отдельностоящий ролик (не часть сезона)", name: "standalone", widget: "boolean", default: false, hint: "Включи и оставь «Часть»/«Номер» пустыми для роликов вроде сольников."}
 
   - name: "merch"
