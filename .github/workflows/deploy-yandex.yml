@@ -1,0 +1,34 @@
+name: Deploy to Yandex Object Storage
+
+# Публичный сайт теперь раздаётся из бакета Yandex Object Storage (через
+# Yandex Cloud CDN), а не с Netlify. Netlify остался только ради /admin/
+# (Decap CMS пишет туда же, в этот репозиторий). Поэтому любой пуш в main —
+# и мой, и коммит из самой админки — должен сам долетать до бакета.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Настроить доступ к Object Storage
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.YC_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          aws configure set region ru-central1
+
+      # /admin/ намеренно не заливаем: Decap CMS там работает только через
+      # Netlify Identity/Git Gateway, на Yandex это просто нерабочая страница —
+      # пусть на spotterlive.ru её вообще не будет (404), а не полурабочий обломок.
+      - name: Залить файлы в бакет
+        run: |
+          aws s3 sync . s3://spotterlive \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --delete \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude "admin/*"
