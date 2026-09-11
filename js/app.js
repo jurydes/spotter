@@ -531,8 +531,13 @@ function renderHome(){
 // Бегущая строка под первым экраном — состав площадки: все, кто хоть раз
 // выходил в выпусках, в порядке первого появления. Список дублируется, чтобы
 // анимация на -50% зациклилась без стыка.
+// Кого не показывать в бегущей строке на главной — из выпусков и подписи
+// участника это не убирает, только из этой ленты.
+const TICKER_EXCLUDE = new Set([
+  'CHENOSKE', 'VERLIEBER', 'MATI BOY', 'YA DIGG KAPUSTU!', 'EEUGENE SPEED', 'T!MMI', 'RECEPT'
+]);
 function tickerHtml(){
-  const roster = allArtists();
+  const roster = allArtists().filter(a => !TICKER_EXCLUDE.has(a));
   if (!roster.length) return '';
   const line = roster.map(a =>
     `<a href="#/artist/${artistSlug(a)}">${escapeHtml(a)}</a><span class="sep">/</span>`
