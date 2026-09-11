@@ -24,6 +24,11 @@ jobs:
       # /admin/ намеренно не заливаем: Decap CMS там работает только через
       # Netlify Identity/Git Gateway, на Yandex это просто нерабочая страница —
       # пусть на spotterlive.ru её вообще не будет (404), а не полурабочий обломок.
+      #
+      # assets/views.json тоже не трогаем: этот файл не лежит в git, его раз
+      # в сутки пишет отдельный workflow update-views.yml. Без --exclude здесь
+      # --delete стирал бы его при каждом обычном деплое до следующего запуска
+      # того workflow.
       - name: Залить файлы в бакет
         run: |
           aws s3 sync . s3://spotterlive \
@@ -31,4 +36,5 @@ jobs:
             --delete \
             --exclude ".git/*" \
             --exclude ".github/*" \
-            --exclude "admin/*"
+            --exclude "admin/*" \
+            --exclude "assets/views.json"
