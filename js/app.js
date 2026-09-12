@@ -890,7 +890,7 @@ function fitHeroLayout(){
 // переносы шли только по пробелам.
 // Возвращает «цену» самого длинного слова: его ширину в px на 1px кегля —
 // fitHeroLayout по ней считает, сколько места колонке текста нужно минимум.
-const HERO_TITLE_MAX = 44, HERO_TITLE_MIN = 24;
+const HERO_TITLE_MAX = 48, HERO_TITLE_MIN = 26;
 function fitHeroTitle(){
   const h1 = document.querySelector('.hero h1');
   if (!h1) return 0;
