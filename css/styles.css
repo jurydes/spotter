@@ -250,7 +250,7 @@
   /* ================= EPISODES — крупные карточки с превью ================= */
   .chapter-head{margin:0 0 18px;}
   .chapter-head:not(:first-child){margin-top:48px;}
-  .chapter-head h3{font-family:var(--f-mono);font-weight:600;font-size:14px;color:var(--steel);letter-spacing:0.08em;}
+  .chapter-head h3{font-family:var(--f-mono);font-weight:700;font-size:22px;color:var(--accent-light);letter-spacing:0.08em;}
   .ep-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;}
   @media (max-width:760px){.ep-grid{grid-template-columns:1fr;}}
   .ep-card{
