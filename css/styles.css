@@ -463,6 +463,17 @@
      сообщить о поступлении, поэтому не disabled, а приглушённый вид. */
   .size-btn.sold-out{color:var(--paper-dim);text-decoration:line-through;opacity:0.55;}
   .size-btn.sold-out.active{border-color:var(--warn);color:var(--warn);opacity:1;}
+  .size-chart-toggle{margin-top:8px;text-decoration:none;font-size:12px;letter-spacing:0.02em;}
+  .size-chart{margin-top:10px;border:1px solid var(--line);padding:12px;}
+  .size-chart table{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-size:13px;}
+  .size-chart th{
+    text-align:left;color:var(--paper-dim);font-weight:400;text-transform:uppercase;
+    letter-spacing:0.04em;font-size:11px;padding:0 8px 8px 0;border-bottom:1px solid var(--line);
+  }
+  .size-chart td{padding:6px 8px 6px 0;border-bottom:1px solid var(--line);color:var(--paper);}
+  .size-chart tr:last-child td{border-bottom:none;}
+  .size-chart tr.active td{color:var(--accent-light);}
+  .size-chart-note{font-size:12px;color:var(--paper-dim);margin:8px 0 0;font-family:var(--f-body);}
 
   /* галерея фото товара */
   .modal-media{display:flex;flex-direction:column;min-width:0;}

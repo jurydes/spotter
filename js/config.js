@@ -227,12 +227,12 @@ const CONFIG = {
       stock: { S: 6, M: 8, L: 6, XL: 3 },
       popular: false,
       images: [
+        'assets/merch/spotter-blue.jpg',
         'assets/merch/spotter-blue-1.jpg',
         'assets/merch/spotter-blue-2.jpg',
         'assets/merch/spotter-blue-3.jpg',
         'assets/merch/spotter-blue-4.jpg',
-        'assets/merch/spotter-blue-5.jpg',
-        'assets/merch/spotter-blue.jpg'
+        'assets/merch/spotter-blue-5.jpg'
       ]
     },
     {
@@ -245,10 +245,10 @@ const CONFIG = {
       stock: { S: 6, M: 8, L: 6, XL: 3 },
       popular: false,
       images: [
+        'assets/merch/spotter-logo-pink.jpg',
         'assets/merch/spotter-pink-1.jpg',
         'assets/merch/spotter-pink-2.jpg',
-        'assets/merch/spotter-pink-3.jpg',
-        'assets/merch/spotter-logo-pink.jpg'
+        'assets/merch/spotter-pink-3.jpg'
       ]
     },
     {

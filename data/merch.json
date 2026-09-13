@@ -39,12 +39,12 @@
         "XL": 3
       },
       "images": [
+        "assets/merch/spotter-blue.jpg",
         "assets/merch/spotter-blue-1.jpg",
         "assets/merch/spotter-blue-2.jpg",
         "assets/merch/spotter-blue-3.jpg",
         "assets/merch/spotter-blue-4.jpg",
-        "assets/merch/spotter-blue-5.jpg",
-        "assets/merch/spotter-blue.jpg"
+        "assets/merch/spotter-blue-5.jpg"
       ],
       "popular": false,
       "id": "spotter-blue",
@@ -67,10 +67,10 @@
         "XL": 3
       },
       "images": [
+        "assets/merch/spotter-logo-pink.jpg",
         "assets/merch/spotter-pink-1.jpg",
         "assets/merch/spotter-pink-2.jpg",
-        "assets/merch/spotter-pink-3.jpg",
-        "assets/merch/spotter-logo-pink.jpg"
+        "assets/merch/spotter-pink-3.jpg"
       ],
       "popular": false,
       "id": "spotter-logo-pink",
