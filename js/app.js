@@ -10,18 +10,7 @@ let modalSize = null;
 let modalQty = 1;
 let modalMsg = '';           // подтверждение добавления, живёт как состояние модалки
 let modalPhoto = 0;          // какое фото товара показано в галерее
-let modalSizeChartOpen = false;
 let checkoutOrder = null;    // сформированный заказ, ждёт подтверждения отправки
-
-// Замеры в см: A — ширина по подмышкам, B — длина по спинке от ворота до низа
-const SIZE_CHART = [
-  { size: 'XS', a: 51, b: 67 },
-  { size: 'S',  a: 54, b: 70 },
-  { size: 'M',  a: 56, b: 72 },
-  { size: 'L',  a: 58, b: 74 },
-  { size: 'XL', a: 60, b: 76 },
-  { size: '2XL', a: 62, b: 79 }
-];
 
 /* =====================================================================
    UTIL
@@ -1015,7 +1004,6 @@ function openProduct(id, fromRoute){
   modalQty = 1;
   modalPhoto = 0;
   modalMsg = '';
-  modalSizeChartOpen = false;
   renderModal();
   document.getElementById('productOverlay').classList.add('open');
   lockScroll(true);
@@ -1063,25 +1051,6 @@ function renderModal(){
   else if (!modalSize){ addLabel = 'Выберите размер'; addDisabled = true; }
   else if (availableForSize <= 0){ addLabel = 'Этого размера нет'; addDisabled = true; }
 
-  const sizeChartHtml = `
-    <button class="link-btn size-chart-toggle" id="sizeChartToggle">
-      Таблица размеров ${modalSizeChartOpen ? '−' : '+'}
-    </button>
-    ${modalSizeChartOpen ? `
-    <div class="size-chart">
-      <table>
-        <thead><tr><th>Размер</th><th>A, см</th><th>B, см</th></tr></thead>
-        <tbody>
-          ${SIZE_CHART.map(row => `
-            <tr class="${row.size===modalSize?'active':''}">
-              <td>${row.size}</td><td>${row.a}</td><td>${row.b}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-      <p class="size-chart-note">A — ширина по подмышкам, B — длина по спинке от ворота до низа.</p>
-    </div>` : ''}
-  `;
-
   const soldOutPicked = modalSize && availableForSize <= 0;
   // Пока размер не выбран — счётчик считает остаток, после выбора распроданного
   // размера тот же счётчик переключается на потолок предзаказа.
@@ -1104,7 +1073,6 @@ function renderModal(){
       <div>
         <span class="field-label">Размер</span>
         <div class="size-row">${sizesHtml}</div>
-        ${sizeChartHtml}
       </div>
       ${soldOutPicked ? `
       <div class="restock">
@@ -1145,10 +1113,6 @@ function renderModal(){
   });
   document.querySelectorAll('.thumb').forEach(btn=>{
     btn.addEventListener('click', ()=>{ modalPhoto = Number(btn.dataset.photo) || 0; renderModal(); });
-  });
-  const sizeChartToggle = document.getElementById('sizeChartToggle');
-  if (sizeChartToggle) sizeChartToggle.addEventListener('click', ()=>{
-    modalSizeChartOpen = !modalSizeChartOpen; renderModal();
   });
   const restockBtn = document.getElementById('restockBtn');
   if (restockBtn) restockBtn.addEventListener('click', ()=>{
