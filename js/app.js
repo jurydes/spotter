@@ -474,11 +474,12 @@ function renderHome(){
   const maxChapter = Math.max(...CONFIG.episodes.filter(e => e.chapter != null).map(e => e.chapter));
   const latestPool = numbered.filter(e => e.chapter === maxChapter);
   const latest = [...latestPool].sort((a,b)=>b.number-a.number)[0] || numbered[0] || CONFIG.episodes[0];
-  const popular = CONFIG.merch.find(p=>p.popular) || CONFIG.merch[0];
-  // новинка — последний добавленный товар в CONFIG.merch, но не тот же, что уже
+  const shownMerch = visibleMerch();
+  const popular = shownMerch.find(p=>p.popular) || shownMerch[0] || null;
+  // новинка — последний добавленный товар на витрине, но не тот же, что уже
   // показан как популярный (иначе на главной дублировалась одна и та же карточка).
-  // Если товар в каталоге вообще один — второй карточки просто не будет.
-  const newest = [...CONFIG.merch].reverse().find(p => p.id !== popular.id) || null;
+  // Если включённый товар всего один — второй карточки просто не будет.
+  const newest = popular ? [...shownMerch].reverse().find(p => p.id !== popular.id) || null : null;
   const chapterTag = chapterLabel(latest.chapter);
   const latestBadge = latest.number != null ? `${chapterTag} · EP.${String(latest.number).padStart(2,'0')}` : chapterTag;
 
@@ -514,6 +515,7 @@ function renderHome(){
     </div>
   </section>
 
+  ${popular ? `
   <section>
     <div class="wrap">
       <div class="section-head">
@@ -525,7 +527,7 @@ function renderHome(){
       </div>
       </div>
     </div>
-  </section>
+  </section>` : ''}
   `;
 }
 
@@ -758,6 +760,12 @@ function plural(n, one, few, many){
 /* =====================================================================
    RENDER: MERCH
    ===================================================================== */
+// Товары с active:false лежат в данных, но на витрине не показываются —
+// это выключатель из админки, чтобы прятать и возвращать товары, ничего
+// не удаляя. Поле может отсутствовать (старые записи) — считаем включённым.
+function visibleMerch(){
+  return CONFIG.merch.filter(p => p.active !== false);
+}
 function stockLabel(product){
   const total = product.sizes.reduce((a,s)=>a+getStockFor(product.id,s),0);
   if (total <= 0) return { text:'нет в наличии', cls:'stock-out' };
@@ -803,12 +811,19 @@ function productCardHtml(p, tagText){
     </div>`;
 }
 function renderMerch(){
-  const categories = [ALL_CATEGORY, ...new Set(CONFIG.merch.map(p=>p.category))];
+  const shown = visibleMerch();
+  const categories = [ALL_CATEGORY, ...new Set(shown.map(p=>p.category))];
+  // Категория могла исчезнуть с витрины, пока фильтр был на ней выбран
+  // (последний товар категории выключили в админке) — кнопки такой категории
+  // больше нет, и без сброса раздел молча оставался бы пустым.
+  if (!categories.includes(activeFilter)) activeFilter = ALL_CATEGORY;
   const filtered = activeFilter === ALL_CATEGORY
-    ? CONFIG.merch
-    : CONFIG.merch.filter(p=>p.category===activeFilter);
+    ? shown
+    : shown.filter(p=>p.category===activeFilter);
 
-  const cards = filtered.map(p => productCardHtml(p, p.popular ? 'Популярное' : null)).join('');
+  const cards = filtered.length
+    ? filtered.map(p => productCardHtml(p, p.popular ? 'Популярное' : null)).join('')
+    : `<div class="stock-note mono">Здесь пока пусто — скоро вернёмся с новым дропом.</div>`;
 
   return `
   <section style="border-top:none;">

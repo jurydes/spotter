@@ -205,7 +205,106 @@ const CONFIG = {
   // поэтому новинку дописывай в конец.
   // Тот же принцип, что и у episodes выше: это запасной снимок, настоящий
   // источник — data/merch.json, его правит Decap CMS (/admin).
+  // active: false — товар остаётся в данных (не теряется), но не показывается
+  // на сайте. Включается/выключается из админки (/admin) чекбоксом "Показывать
+  // на сайте" — так товары можно прятать и возвращать, ничего не удаляя.
   merch: [
+    {
+      id: 'rewinding-riddims',
+      name: 'Футболка REWINDING RIDDIMS',
+      category: 'Футболки',
+      price: 3490,
+      description: 'Оверсайз-футболка, белая. Принт спереди: рукопожатие и логотип REWINDING RIDDIMS.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: true,
+      active: false,
+      images: ['assets/merch/rewinding-riddims.jpg']
+    },
+    {
+      id: 'spotter-blue',
+      name: 'Футболка SPOTTER Blue',
+      category: 'Футболки',
+      price: 3490,
+      description: 'Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в синем градиенте.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: false,
+      active: false,
+      images: [
+        'assets/merch/spotter-blue.jpg',
+        'assets/merch/spotter-blue-1.jpg',
+        'assets/merch/spotter-blue-2.jpg',
+        'assets/merch/spotter-blue-3.jpg',
+        'assets/merch/spotter-blue-4.jpg',
+        'assets/merch/spotter-blue-5.jpg'
+      ]
+    },
+    {
+      id: 'spotter-logo-pink',
+      name: 'Футболка SPOTTER Logo Pink',
+      category: 'Футболки',
+      price: 3499,
+      description: 'Футболка, белая. Принт спереди: логотип SPOTTER в розовом градиенте.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: false,
+      active: false,
+      images: [
+        'assets/merch/spotter-logo-pink.jpg',
+        'assets/merch/spotter-pink-1.jpg',
+        'assets/merch/spotter-pink-2.jpg',
+        'assets/merch/spotter-pink-3.jpg'
+      ]
+    },
+    {
+      id: 'spotter-green',
+      name: 'Футболка SPOTTER Green',
+      category: 'Футболки',
+      price: 3490,
+      description: 'Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в зелёном градиенте.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: false,
+      active: false,
+      images: ['assets/merch/spotter-green.jpg']
+    },
+    {
+      id: 'rewinding-business-black',
+      name: 'Футболка REWIND BUSINESS Black',
+      category: 'Футболки',
+      price: 3499,
+      description: 'Футболка, чёрная. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: false,
+      active: false,
+      images: ['assets/merch/rewinding-business-black.jpg']
+    },
+    {
+      id: 'rewinding-business-white',
+      name: 'Футболка REWIND BUSINESS White',
+      category: 'Футболки',
+      price: 3499,
+      description: 'Футболка, белая. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: false,
+      active: false,
+      images: ['assets/merch/rewinding-business-white.jpg']
+    },
+    {
+      id: 'spotter-logo-white',
+      name: 'Футболка SPOTTER Logo',
+      category: 'Футболки',
+      price: 3499,
+      description: 'Футболка, белая. Принт спереди: чёрный логотип SPOTTER.',
+      sizes: ['S','M','L','XL'],
+      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      popular: false,
+      active: false,
+      images: ['assets/merch/spotter-logo-white.jpg']
+    },
     {
       id: 'spotter-hoodie-black',
       name: 'Худи SPOTTER',
@@ -215,6 +314,7 @@ const CONFIG = {
       sizes: ['S','M','L','XL'],
       stock: { S: 0, M: 0, L: 0, XL: 0 },
       popular: true,
+      active: true,
       images: ['assets/merch/spotter-hoodie-black.jpg']
     }
   ]
