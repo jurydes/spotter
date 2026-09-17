@@ -476,8 +476,9 @@ function renderHome(){
   const latest = [...latestPool].sort((a,b)=>b.number-a.number)[0] || numbered[0] || CONFIG.episodes[0];
   const popular = CONFIG.merch.find(p=>p.popular) || CONFIG.merch[0];
   // новинка — последний добавленный товар в CONFIG.merch, но не тот же, что уже
-  // показан как популярный (иначе на главной дублировалась одна и та же карточка)
-  const newest = [...CONFIG.merch].reverse().find(p => p.id !== popular.id) || CONFIG.merch[0];
+  // показан как популярный (иначе на главной дублировалась одна и та же карточка).
+  // Если товар в каталоге вообще один — второй карточки просто не будет.
+  const newest = [...CONFIG.merch].reverse().find(p => p.id !== popular.id) || null;
   const chapterTag = chapterLabel(latest.chapter);
   const latestBadge = latest.number != null ? `${chapterTag} · EP.${String(latest.number).padStart(2,'0')}` : chapterTag;
 
@@ -519,8 +520,8 @@ function renderHome(){
         <h2>Мерч</h2>
       </div>
       <div class="merch-grid">
-        ${productCardHtml(newest, 'Новый дроп')}
-        ${productCardHtml(popular, 'Популярное')}
+        ${newest ? productCardHtml(newest, 'Новый дроп') : ''}
+        ${productCardHtml(popular, newest ? 'Популярное' : null)}
       </div>
       </div>
     </div>
@@ -797,6 +798,7 @@ function productCardHtml(p, tagText){
         <div class="stock-flag ${st.cls}">${st.text}</div>
         <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
         ${buyButtonHtml(p)}
+        <button class="btn-outline survey-btn" data-open-survey="${p.id}">Пройти опрос и получить скидку</button>
       </div>
     </div>`;
 }
@@ -814,9 +816,10 @@ function renderMerch(){
       <div class="section-head">
         <h2>Мерч</h2>
       </div>
+      ${categories.length > 2 ? `
       <div class="filters">
         ${categories.map(c=>`<button data-filter="${escapeHtml(c)}" class="${c===activeFilter?'active':''}">${escapeHtml(c)}</button>`).join('')}
-      </div>
+      </div>` : ''}
       <div class="merch-grid">${cards}</div>
     </div>
   </section>
@@ -939,6 +942,12 @@ function bindDynamicHandlers(){
       openDrawer();
     });
   });
+  document.querySelectorAll('[data-open-survey]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation(); // не открывать модалку карточки
+      openSurvey(el.dataset.openSurvey);
+    });
+  });
   document.querySelectorAll('[data-random-episode]').forEach(el=>{
     el.addEventListener('click', openRandomEpisode);
   });
@@ -1022,6 +1031,100 @@ function closeProduct(fromRoute){
   // тогда закрытие не возвращало адрес назад, и карточка открывалась снова.
   if (!fromRoute && location.hash.indexOf('#/product/') === 0) navigate('#/merch');
 }
+
+/* =====================================================================
+   ОПРОС "почему покупают мерч" — качественное интервью, не квиз с вариантами.
+   Ответы уходят тем же способом, что и заказ без оплаты на сайте: черновик
+   открывается в Telegram, отправляет его сам человек. Скидку по итогам
+   присылают вручную в переписке — на сайте нет ни промокодов, ни их учёта.
+   ===================================================================== */
+const SURVEY_QUESTIONS = [
+  'Расскажи про последний раз, когда ты покупал мерч музыкального проекта.',
+  'Почему ты его купил?',
+  'Что ты почувствовал после покупки?',
+  'Где ты его носишь?',
+  'Есть ли вещи, которые ты специально не носишь на людях? Почему?',
+  'Что должно произойти, чтобы ты захотел купить мерч нашей платформы?',
+  'Какие вещи из нашего мерча ты видел, но решил не покупать? Почему?',
+  'Сколько ты готов потратить на мерч, который тебе реально нравится?',
+  'Если бы завтра платформа исчезла, какая вещь осталась бы у тебя как память о ней?'
+];
+let surveyProduct = null;
+let surveyStep = 0;
+let surveyAnswers = [];
+
+function openSurvey(productId){
+  surveyProduct = findProduct(productId);
+  surveyStep = 0;
+  surveyAnswers = SURVEY_QUESTIONS.map(()=>'');
+  renderSurvey();
+  document.getElementById('surveyOverlay').classList.add('open');
+  lockScroll(true);
+  trapFocus(document.getElementById('surveyOverlay'));
+}
+function closeSurvey(){
+  document.getElementById('surveyOverlay').classList.remove('open');
+  releaseFocus();
+  if (!document.getElementById('productOverlay').classList.contains('open') &&
+      !document.getElementById('cartDrawer').classList.contains('open')) lockScroll(false);
+}
+function surveyText(){
+  const lines = [`Ответы на опрос о мерче${surveyProduct ? ' («' + surveyProduct.name + '»)' : ''}:`];
+  SURVEY_QUESTIONS.forEach((q,i)=>{
+    lines.push(`${i+1}. ${q}\n${(surveyAnswers[i] || '').trim() || '— пропущено'}`);
+  });
+  return lines.join('\n\n');
+}
+function renderSurvey(){
+  const el = document.getElementById('surveyModalContent');
+  const total = SURVEY_QUESTIONS.length;
+
+  // Финальный экран — все вопросы пройдены, остаётся только отправить черновик
+  if (surveyStep >= total){
+    const url = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(surveyText())}`;
+    el.innerHTML = `
+      <button class="modal-close" id="surveyCloseBtn" aria-label="Закрыть">×</button>
+      <div class="survey-body survey-done">
+        <span class="field-label">Готово</span>
+        <h2 class="survey-q">Спасибо за ответы</h2>
+        <p class="order-hint">Отправь их нам в Telegram — и мы пришлём туда же персональную скидку на мерч.</p>
+      </div>
+      <div class="survey-nav">
+        <button class="link-btn" id="surveyRestartBtn">Пройти заново</button>
+        <a class="btn" id="surveySendBtn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Отправить в Telegram</a>
+      </div>
+    `;
+    document.getElementById('surveyCloseBtn').addEventListener('click', closeSurvey);
+    document.getElementById('surveyRestartBtn').addEventListener('click', ()=>{ surveyStep = 0; renderSurvey(); });
+    return;
+  }
+
+  const q = SURVEY_QUESTIONS[surveyStep];
+  el.innerHTML = `
+    <button class="modal-close" id="surveyCloseBtn" aria-label="Закрыть">×</button>
+    <div class="survey-body">
+      <div class="survey-progress mono">${surveyStep+1} / ${total}</div>
+      <div class="survey-bar"><div class="survey-bar-fill" style="width:${Math.round((surveyStep/total)*100)}%"></div></div>
+      <h2 class="survey-q">${escapeHtml(q)}</h2>
+      <textarea class="survey-input" id="surveyInput" rows="5" placeholder="Пиши как есть — можно коротко, можно развёрнуто">${escapeHtml(surveyAnswers[surveyStep])}</textarea>
+    </div>
+    <div class="survey-nav">
+      ${surveyStep > 0 ? `<button class="btn-outline" id="surveyBackBtn">Назад</button>` : `<span></span>`}
+      <button class="btn" id="surveyNextBtn">${surveyStep === total-1 ? 'Завершить' : 'Далее'}</button>
+    </div>
+  `;
+  document.getElementById('surveyCloseBtn').addEventListener('click', closeSurvey);
+  const input = document.getElementById('surveyInput');
+  input.addEventListener('input', ()=>{ surveyAnswers[surveyStep] = input.value; });
+  input.focus();
+  const backBtn = document.getElementById('surveyBackBtn');
+  if (backBtn) backBtn.addEventListener('click', ()=>{ surveyStep--; renderSurvey(); });
+  document.getElementById('surveyNextBtn').addEventListener('click', ()=>{ surveyStep++; renderSurvey(); });
+}
+document.getElementById('surveyOverlay').addEventListener('click', (e)=>{
+  if (e.target.id === 'surveyOverlay') closeSurvey();
+});
+
 function renderModal(){
   const p = modalProduct;
   // сколько ещё можно взять выбранного размера с учётом того, что уже в корзине
@@ -1322,7 +1425,7 @@ function trapFocus(container){
   container.addEventListener('keydown', container._trap);
 }
 function releaseFocus(){
-  ['productOverlay','cartDrawer'].forEach(id=>{
+  ['productOverlay','cartDrawer','surveyOverlay'].forEach(id=>{
     const el = document.getElementById(id);
     if (el && el._trap){ el.removeEventListener('keydown', el._trap); el._trap = null; }
   });
@@ -1333,6 +1436,7 @@ function releaseFocus(){
 document.addEventListener('keydown', e=>{
   if (e.key !== 'Escape') return;
   if (lbState) closeLightbox();
+  else if (document.getElementById('surveyOverlay').classList.contains('open')) closeSurvey();
   else if (document.getElementById('productOverlay').classList.contains('open')) closeProduct();
   else if (document.getElementById('cartDrawer').classList.contains('open')) closeDrawer();
 });
