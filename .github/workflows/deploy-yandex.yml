@@ -21,6 +21,27 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.YC_SECRET_ACCESS_KEY }}
           aws configure set region ru-central1
 
+      # Каждый файл на CDN кэшируется сам по себе, со своим таймером. Раньше
+      # это значило, что после деплоя посетителю мог достаться свежий index.html
+      # со старым app.js — и сайт открывался пустой страницей.
+      #
+      # Поэтому css/js уезжают под именами с хэшем коммита (app.eafb9d3.js), а
+      # index.html ссылается именно на них. Новый деплой — новые адреса, которых
+      # в кэше заведомо нет, так что подмешать старый файл к новому html
+      # невозможно. Старые версии из бакета не удаляем: пока у кого-то в кэше
+      # лежит предыдущий index.html, он должен найти свой, подходящий ему js.
+      - name: Собрать css/js с версией в имени и переписать ссылки
+        run: |
+          V=${GITHUB_SHA::7}
+          for f in css/fonts.css css/styles.css js/config.js js/app.js; do
+            cp "$f" "${f%.*}.$V.${f##*.}"
+          done
+          sed -i -E "s|(href=\"css/[a-z]+)\.css\"|\1.$V.css\"|g; s|(src=\"js/[a-z]+)\.js\"|\1.$V.js\"|g" index.html
+          # Если разметку однажды перепишут и sed промахнётся — лучше свалить
+          # деплой здесь, чем выложить html со ссылками в никуда.
+          grep -q "js/app\.$V\.js" index.html || { echo "Ссылки в index.html не переписались"; exit 1; }
+          grep -nE "css/|js/" index.html
+
       # /admin/ намеренно не заливаем: Decap CMS там работает только через
       # Netlify Identity/Git Gateway, на Yandex это просто нерабочая страница —
       # пусть на spotterlive.ru её вообще не будет (404), а не полурабочий обломок.
@@ -29,7 +50,7 @@ jobs:
       # в сутки пишет отдельный workflow update-views.yml. Без --exclude здесь
       # --delete стирал бы его при каждом обычном деплое до следующего запуска
       # того workflow.
-      - name: Залить файлы в бакет
+      - name: Залить фото и остальные файлы
         run: |
           aws s3 sync . s3://spotterlive \
             --endpoint-url=https://storage.yandexcloud.net \
@@ -37,4 +58,42 @@ jobs:
             --exclude ".git/*" \
             --exclude ".github/*" \
             --exclude "admin/*" \
-            --exclude "assets/views.json"
+            --exclude "css/*" \
+            --exclude "js/*" \
+            --exclude "index.html" \
+            --exclude "data/*" \
+            --exclude "assets/views.json" \
+            --cache-control "public, max-age=86400"
+
+      # Год кэша безопасен ровно потому, что в имени файла стоит версия:
+      # следующий деплой создаст другое имя, а не перезапишет это.
+      - name: Залить css/js с версией в имени
+        run: |
+          V=${GITHUB_SHA::7}
+          for f in css/fonts.$V.css css/styles.$V.css; do
+            aws s3 cp "$f" "s3://spotterlive/$f" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "public, max-age=31536000, immutable" \
+              --content-type "text/css; charset=utf-8"
+          done
+          for f in js/config.$V.js js/app.$V.js; do
+            aws s3 cp "$f" "s3://spotterlive/$f" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "public, max-age=31536000, immutable" \
+              --content-type "application/javascript; charset=utf-8"
+          done
+
+      # index.html и данные из админки, наоборот, не кэшируем совсем: они
+      # маленькие, а видеть их надо сразу. Именно свежий index.html и решает,
+      # какая версия css/js поедет посетителю.
+      - name: Залить index.html и данные без кэша
+        run: |
+          aws s3 cp index.html s3://spotterlive/index.html \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --cache-control "no-cache" \
+            --content-type "text/html; charset=utf-8"
+          aws s3 sync data s3://spotterlive/data \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --delete \
+            --cache-control "no-cache" \
+            --content-type "application/json; charset=utf-8"
