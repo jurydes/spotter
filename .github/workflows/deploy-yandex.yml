@@ -83,6 +83,26 @@ jobs:
               --content-type "application/javascript; charset=utf-8"
           done
 
+      # Безверсионные копии — для тех, у кого в кэше остался index.html,
+      # выпущенный до перехода на имена с версией: он просит js/app.js, и
+      # этот файл должен существовать и быть свежим, а не замороженным на
+      # том коммите, когда схему поменяли. Кэш короткий: адрес не меняется,
+      # поэтому длинный кэш здесь как раз и создавал бы рассинхрон.
+      - name: Залить безверсионные копии css/js
+        run: |
+          for f in css/fonts.css css/styles.css; do
+            aws s3 cp "$f" "s3://spotterlive/$f" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "public, max-age=300" \
+              --content-type "text/css; charset=utf-8"
+          done
+          for f in js/config.js js/app.js; do
+            aws s3 cp "$f" "s3://spotterlive/$f" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "public, max-age=300" \
+              --content-type "application/javascript; charset=utf-8"
+          done
+
       # index.html и данные из админки, наоборот, не кэшируем совсем: они
       # маленькие, а видеть их надо сразу. Именно свежий index.html и решает,
       # какая версия css/js поедет посетителю.
