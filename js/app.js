@@ -15,6 +15,23 @@ let checkoutOrder = null;    // сформированный заказ, ждё�
 /* =====================================================================
    UTIL
    ===================================================================== */
+// Обработчик на элемент страницы, которого может не оказаться. Звучит как
+// перестраховка, но однажды уже положило сайт целиком: CDN отдал свежий
+// app.js со старым index.html, строка на верхнем уровне упала на отсутствующем
+// элементе — и весь остаток файла, включая init(), просто не выполнился.
+// Пустая страница вместо одной неработающей кнопки. Теперь худшее, что может
+// случиться при таком рассинхроне, — временно не работает одна кнопка.
+function bindEl(id, event, handler){
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+  return el;
+}
+// Открыт ли оверлей. Отсутствующий элемент = закрыт, по той же причине,
+// что и bindEl выше: одна строчка разметки не должна ронять страницу.
+function isOpen(id){
+  const el = document.getElementById(id);
+  return !!el && el.classList.contains('open');
+}
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, s => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
@@ -457,11 +474,11 @@ function applyRoute(){
   if (!route.product) window.scrollTo({ top:0, behavior:'auto' });
 }
 window.addEventListener('hashchange', applyRoute);
-document.getElementById('tabsDesktop').addEventListener('click', e=>{
+bindEl('tabsDesktop', 'click', e=>{
   const b = e.target.closest('button'); if(!b) return;
   navigate(b.dataset.tab === 'home' ? '#/' : '#/' + b.dataset.tab);
 });
-document.getElementById('tabsMobile').addEventListener('click', e=>{
+bindEl('tabsMobile', 'click', e=>{
   const b = e.target.closest('button'); if(!b) return;
   navigate(b.dataset.tab === 'home' ? '#/' : '#/' + b.dataset.tab);
 });
@@ -1040,7 +1057,7 @@ function closeProduct(fromRoute){
   modalProduct = null;
   releaseFocus();
   // корзина может быть открыта поверх карточки — тогда прокрутку не возвращаем
-  if (!document.getElementById('cartDrawer').classList.contains('open')) lockScroll(false);
+  if (!isOpen('cartDrawer')) lockScroll(false);
   // Сверяемся с адресом, а не с разобранным route: hashchange приходит
   // следующей задачей, и сразу после открытия карточки route ещё старый —
   // тогда закрытие не возвращало адрес назад, и карточка открывалась снова.
@@ -1080,8 +1097,7 @@ function openSurvey(productId){
 function closeSurvey(){
   document.getElementById('surveyOverlay').classList.remove('open');
   releaseFocus();
-  if (!document.getElementById('productOverlay').classList.contains('open') &&
-      !document.getElementById('cartDrawer').classList.contains('open')) lockScroll(false);
+  if (!isOpen('productOverlay') && !isOpen('cartDrawer')) lockScroll(false);
 }
 function surveyText(){
   const lines = [`Ответы на опрос о мерче${surveyProduct ? ' («' + surveyProduct.name + '»)' : ''}:`];
@@ -1136,7 +1152,7 @@ function renderSurvey(){
   if (backBtn) backBtn.addEventListener('click', ()=>{ surveyStep--; renderSurvey(); });
   document.getElementById('surveyNextBtn').addEventListener('click', ()=>{ surveyStep++; renderSurvey(); });
 }
-document.getElementById('surveyOverlay').addEventListener('click', (e)=>{
+bindEl('surveyOverlay', 'click', (e)=>{
   if (e.target.id === 'surveyOverlay') closeSurvey();
 });
 
@@ -1272,7 +1288,7 @@ function bindModalCartBtn(){
   const cartBtn = document.getElementById('modalCartBtn');
   if (cartBtn) cartBtn.addEventListener('click', ()=>{ closeProduct(); openDrawer(); });
 }
-document.getElementById('productOverlay').addEventListener('click', e=>{
+bindEl('productOverlay', 'click', e=>{
   if (e.target.id === 'productOverlay') closeProduct();
 });
 
@@ -1307,8 +1323,8 @@ function closeLightbox(){
   lbState = null;
   // под фото может остаться открытая карточка товара или корзина — тогда
   // прокрутку страницы отпускать рано
-  const productOpen = document.getElementById('productOverlay').classList.contains('open');
-  const drawerOpen = document.getElementById('cartDrawer').classList.contains('open');
+  const productOpen = isOpen('productOverlay');
+  const drawerOpen = isOpen('cartDrawer');
   if (!productOpen && !drawerOpen) lockScroll(false);
   if (prev && document.contains(prev)) prev.focus();
 }
@@ -1403,7 +1419,7 @@ function bindLightboxZoom(){
   });
 }
 // Клик мимо фото закрывает просмотрщик
-document.getElementById('lightbox').addEventListener('click', e=>{
+bindEl('lightbox', 'click', e=>{
   if (e.target.id === 'lightbox') closeLightbox();
 });
 // Стрелками листаем галерею
@@ -1451,9 +1467,9 @@ function releaseFocus(){
 document.addEventListener('keydown', e=>{
   if (e.key !== 'Escape') return;
   if (lbState) closeLightbox();
-  else if (document.getElementById('surveyOverlay').classList.contains('open')) closeSurvey();
-  else if (document.getElementById('productOverlay').classList.contains('open')) closeProduct();
-  else if (document.getElementById('cartDrawer').classList.contains('open')) closeDrawer();
+  else if (isOpen('surveyOverlay')) closeSurvey();
+  else if (isOpen('productOverlay')) closeProduct();
+  else if (isOpen('cartDrawer')) closeDrawer();
 });
 
 /* =====================================================================
@@ -1472,11 +1488,11 @@ function closeDrawer(){
   checkoutOrder = null; // при следующем открытии — снова корзина, а не экран отправки
   releaseFocus();
   // карточка товара может остаться открытой под корзиной — тогда замок не снимаем
-  if (!document.getElementById('productOverlay').classList.contains('open')) lockScroll(false);
+  if (!isOpen('productOverlay')) lockScroll(false);
 }
-document.getElementById('cartOpenBtn').addEventListener('click', openDrawer);
-document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
-document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+bindEl('cartOpenBtn', 'click', openDrawer);
+bindEl('drawerCloseBtn', 'click', closeDrawer);
+bindEl('drawerOverlay', 'click', closeDrawer);
 
 function renderDrawer(){
   const body = document.getElementById('drawerBody');
