@@ -1085,17 +1085,39 @@ let surveyProduct = null;
 let surveyStep = 0;
 let surveyAnswers = [];
 
+// Оверлей опроса берём из разметки, а если его там нет — создаём сами.
+// index.html живёт в кэше у посетителя и на CDN своей жизнью и обновляется
+// не одновременно с js: у части людей свежий app.js встречается со старым
+// html, где этого блока ещё нет, и кнопка опроса просто молчала. Так фича
+// не зависит от того, какая версия разметки досталась посетителю.
+function surveyOverlayEl(){
+  let el = document.getElementById('surveyOverlay');
+  if (!el){
+    el = document.createElement('div');
+    el.className = 'overlay';
+    el.id = 'surveyOverlay';
+    el.innerHTML = '<div class="survey-card" id="surveyModalContent"></div>';
+    document.body.appendChild(el);
+  }
+  if (!el.dataset.backdropBound){
+    el.addEventListener('click', (e)=>{ if (e.target.id === 'surveyOverlay') closeSurvey(); });
+    el.dataset.backdropBound = '1';
+  }
+  return el;
+}
 function openSurvey(productId){
   surveyProduct = findProduct(productId);
   surveyStep = 0;
   surveyAnswers = SURVEY_QUESTIONS.map(()=>'');
+  const overlay = surveyOverlayEl();
   renderSurvey();
-  document.getElementById('surveyOverlay').classList.add('open');
+  overlay.classList.add('open');
   lockScroll(true);
-  trapFocus(document.getElementById('surveyOverlay'));
+  trapFocus(overlay);
 }
 function closeSurvey(){
-  document.getElementById('surveyOverlay').classList.remove('open');
+  const el = document.getElementById('surveyOverlay');
+  if (el) el.classList.remove('open');
   releaseFocus();
   if (!isOpen('productOverlay') && !isOpen('cartDrawer')) lockScroll(false);
 }
@@ -1152,9 +1174,6 @@ function renderSurvey(){
   if (backBtn) backBtn.addEventListener('click', ()=>{ surveyStep--; renderSurvey(); });
   document.getElementById('surveyNextBtn').addEventListener('click', ()=>{ surveyStep++; renderSurvey(); });
 }
-bindEl('surveyOverlay', 'click', (e)=>{
-  if (e.target.id === 'surveyOverlay') closeSurvey();
-});
 
 function renderModal(){
   const p = modalProduct;
