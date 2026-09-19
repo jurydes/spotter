@@ -1065,25 +1065,50 @@ function closeProduct(fromRoute){
 }
 
 /* =====================================================================
-   ОПРОС "почему покупают мерч" — качественное интервью, не квиз с вариантами.
-   Ответы уходят тем же способом, что и заказ без оплаты на сайте: черновик
-   открывается в Telegram, отправляет его сам человек. Скидку по итогам
-   присылают вручную в переписке — на сайте нет ни промокодов, ни их учёта.
+   ОПРОС ПРО МЕРЧ. Ответы уходят тем же способом, что и заказ без оплаты
+   на сайте: черновик открывается в Telegram, отправляет его сам человек.
+   Скидку по итогам присылают вручную в переписке — на сайте нет ни
+   промокодов, ни их учёта.
+
+   Вопрос без options — открытый, с полем для текста. С options — выбор
+   вариантов, всегда множественный. other:true добавляет вариант «Другое»,
+   который открывает строку для своего ответа.
    ===================================================================== */
+const SURVEY_OTHER = 'Другое';
 const SURVEY_QUESTIONS = [
-  'Расскажи про последний раз, когда ты покупал мерч музыкального проекта.',
-  'Почему ты его купил?',
-  'Что ты почувствовал после покупки?',
-  'Где ты его носишь?',
-  'Есть ли вещи, которые ты специально не носишь на людях? Почему?',
-  'Что должно произойти, чтобы ты захотел купить мерч нашей платформы?',
-  'Какие вещи из нашего мерча ты видел, но решил не покупать? Почему?',
-  'Сколько ты готов потратить на мерч, который тебе реально нравится?',
-  'Если бы завтра платформа исчезла, какая вещь осталась бы у тебя как память о ней?'
+  { q: 'Как вы узнали о проекте SPOTTER?' },
+  {
+    q: 'Что для вас важно при покупке мерча?',
+    options: ['Цена', 'Качество', 'Причастность к проекту', 'Способ поддержать проект'],
+    other: true
+  },
+  {
+    q: 'Какие страхи и переживания вы испытываете при покупке мерча?',
+    options: ['Долгая доставка', 'Качество', 'Отсутствие возврата'],
+    other: true
+  },
+  { q: 'Для чего вы покупаете мерч?' },
+  { q: 'Что для вас SPOTTER?' },
+  {
+    q: 'Что вы бы хотели видеть из одежды и аксессуаров от SPOTTER в дальнейшем?',
+    options: ['Футболки', 'Худи, зип-худи', 'Верхняя одежда', 'Аксессуары (сумки, шапки, кепки, картхолдеры)'],
+    other: true
+  },
+  { q: 'Чей мерч вы бы никогда не купили и почему?' },
+  { q: 'Был ли у вас неудачный опыт покупки мерча? Если да, опишите какой и почему.' }
 ];
 let surveyProduct = null;
 let surveyStep = 0;
 let surveyAnswers = [];
+
+// Варианты вопроса вместе с «Другое» — в одном списке, чтобы «Другое»
+// вело себя как обычный переключатель и просто открывало строку ввода.
+function surveyOptions(def){
+  return def.other ? [...def.options, SURVEY_OTHER] : def.options;
+}
+function blankSurveyAnswers(){
+  return SURVEY_QUESTIONS.map(()=>({ text:'', picked:[], other:'' }));
+}
 
 // Оверлей опроса берём из разметки, а если его там нет — создаём сами.
 // index.html живёт в кэше у посетителя и на CDN своей жизнью и обновляется
@@ -1108,7 +1133,7 @@ function surveyOverlayEl(){
 function openSurvey(productId){
   surveyProduct = findProduct(productId);
   surveyStep = 0;
-  surveyAnswers = SURVEY_QUESTIONS.map(()=>'');
+  surveyAnswers = blankSurveyAnswers();
   const overlay = surveyOverlayEl();
   renderSurvey();
   overlay.classList.add('open');
@@ -1121,10 +1146,22 @@ function closeSurvey(){
   releaseFocus();
   if (!isOpen('productOverlay') && !isOpen('cartDrawer')) lockScroll(false);
 }
+// Ответ одной строкой: у открытого вопроса это сам текст, у вопроса с
+// вариантами — выбранное через запятую, причём «Другое» разворачивается
+// в то, что человек вписал руками.
+function surveyAnswerText(i){
+  const def = SURVEY_QUESTIONS[i];
+  const a = surveyAnswers[i] || { text:'', picked:[], other:'' };
+  if (!def.options) return (a.text || '').trim();
+  const other = (a.other || '').trim();
+  return a.picked
+    .map(opt => (opt === SURVEY_OTHER && other) ? `другое: ${other}` : opt)
+    .join(', ');
+}
 function surveyText(){
   const lines = [`Ответы на опрос о мерче${surveyProduct ? ' («' + surveyProduct.name + '»)' : ''}:`];
-  SURVEY_QUESTIONS.forEach((q,i)=>{
-    lines.push(`${i+1}. ${q}\n${(surveyAnswers[i] || '').trim() || '— пропущено'}`);
+  SURVEY_QUESTIONS.forEach((def,i)=>{
+    lines.push(`${i+1}. ${def.q}\n${surveyAnswerText(i) || '— пропущено'}`);
   });
   return lines.join('\n\n');
 }
@@ -1152,14 +1189,30 @@ function renderSurvey(){
     return;
   }
 
-  const q = SURVEY_QUESTIONS[surveyStep];
+  const def = SURVEY_QUESTIONS[surveyStep];
+  const answer = surveyAnswers[surveyStep];
+  const fieldHtml = def.options ? `
+      <div class="survey-hint mono">можно выбрать несколько</div>
+      <div class="survey-opts">
+        ${surveyOptions(def).map(opt => `
+          <button class="survey-opt ${answer.picked.includes(opt)?'active':''}" data-opt="${escapeHtml(opt)}">
+            <span class="survey-box"></span>${escapeHtml(opt)}
+          </button>`).join('')}
+      </div>
+      ${answer.picked.includes(SURVEY_OTHER)
+        ? `<input class="survey-other" id="surveyOther" placeholder="Что именно?" value="${escapeHtml(answer.other)}">`
+        : ''}
+    ` : `
+      <textarea class="survey-input" id="surveyInput" rows="5" placeholder="Пишите как есть — можно коротко, можно развёрнуто">${escapeHtml(answer.text)}</textarea>
+    `;
+
   el.innerHTML = `
     <button class="modal-close" id="surveyCloseBtn" aria-label="Закрыть">×</button>
     <div class="survey-body">
       <div class="survey-progress mono">${surveyStep+1} / ${total}</div>
       <div class="survey-bar"><div class="survey-bar-fill" style="width:${Math.round((surveyStep/total)*100)}%"></div></div>
-      <h2 class="survey-q">${escapeHtml(q)}</h2>
-      <textarea class="survey-input" id="surveyInput" rows="5" placeholder="Пиши как есть — можно коротко, можно развёрнуто">${escapeHtml(surveyAnswers[surveyStep])}</textarea>
+      <h2 class="survey-q">${escapeHtml(def.q)}</h2>
+      ${fieldHtml}
     </div>
     <div class="survey-nav">
       ${surveyStep > 0 ? `<button class="btn-outline" id="surveyBackBtn">Назад</button>` : `<span></span>`}
@@ -1168,8 +1221,24 @@ function renderSurvey(){
   `;
   document.getElementById('surveyCloseBtn').addEventListener('click', closeSurvey);
   const input = document.getElementById('surveyInput');
-  input.addEventListener('input', ()=>{ surveyAnswers[surveyStep] = input.value; });
-  input.focus();
+  if (input){
+    input.addEventListener('input', ()=>{ answer.text = input.value; });
+    input.focus();
+  }
+  el.querySelectorAll('[data-opt]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const opt = btn.dataset.opt;
+      const at = answer.picked.indexOf(opt);
+      if (at === -1) answer.picked.push(opt);
+      else answer.picked.splice(at, 1);
+      renderSurvey(); // перерисовка нужна: «Другое» открывает и прячет поле ввода
+    });
+  });
+  const other = document.getElementById('surveyOther');
+  if (other){
+    other.addEventListener('input', ()=>{ answer.other = other.value; });
+    if (!answer.other) other.focus();
+  }
   const backBtn = document.getElementById('surveyBackBtn');
   if (backBtn) backBtn.addEventListener('click', ()=>{ surveyStep--; renderSurvey(); });
   document.getElementById('surveyNextBtn').addEventListener('click', ()=>{ surveyStep++; renderSurvey(); });
