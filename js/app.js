@@ -817,6 +817,21 @@ function surveyDiscount(){
 function priceAfterSurvey(product){
   return Math.max(product.price - surveyDiscount(), 0);
 }
+// Цена с зачёркнутой базовой и итоговой после опроса. Оба числа настоящие:
+// 6 700 платит тот, кто опрос не проходит, 5 000 — кто прошёл. Без скидки
+// в конфиге остаётся просто цена, как было.
+function priceBlockHtml(p, note){
+  const d = surveyDiscount();
+  if (!d){
+    return `<div class="price">${formatPrice(p.price)}${note ? ` <span class="price-note mono">${escapeHtml(note)}</span>` : ''}</div>`;
+  }
+  return `
+    <div class="price-row">
+      <span class="price-old mono">${formatPrice(p.price)}</span>
+      <span class="price price-new">${formatPrice(priceAfterSurvey(p))}</span>
+    </div>
+    <div class="price-survey mono">после опроса${note ? ` · ${escapeHtml(note)}` : ''}</div>`;
+}
 function surveyButtonHtml(product, cls){
   const d = surveyDiscount();
   const label = d ? `Пройти опрос — скидка ${formatPrice(d)}` : 'Пройти опрос и получить скидку';
@@ -833,8 +848,7 @@ function productCardHtml(p, tagText){
       ${productPhoto(p)}
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
-        <div class="price">${formatPrice(p.price)}</div>
-        ${surveyDiscount() ? `<div class="price-survey mono">${formatPrice(priceAfterSurvey(p))} после опроса</div>` : ''}
+        ${priceBlockHtml(p)}
         <div class="stock-flag ${st.cls}">${st.text}</div>
         <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
         ${buyButtonHtml(p)}
@@ -1310,7 +1324,7 @@ function renderModal(){
     </div>
     <div class="modal-info">
       <h2 id="modalTitle">${escapeHtml(p.name)}</h2>
-      <div class="price">${formatPrice(p.price)}${preorderOnly ? ` <span class="price-note mono">по предзаказу</span>` : ''}</div>
+      ${priceBlockHtml(p, preorderOnly ? 'по предзаказу' : '')}
       <p class="desc">${escapeHtml(p.description)}</p>
       <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
       <div>
