@@ -849,7 +849,7 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         ${priceBlockHtml(p)}
-        <div class="stock-flag ${st.cls}">${st.text}</div>
+        ${st.cls === 'stock-out' ? '' : `<div class="stock-flag ${st.cls}">${st.text}</div>`}
         <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
         ${buyButtonHtml(p)}
         ${surveyButtonHtml(p, 'survey-btn')}
@@ -1280,7 +1280,6 @@ function renderModal(){
   const p = modalProduct;
   // сколько ещё можно взять выбранного размера с учётом того, что уже в корзине
   const availableForSize = modalSize ? getStockFor(p.id, modalSize) - qtyInCart(p.id, modalSize) : 0;
-  const anySizeLeft = p.sizes.some(s => getStockFor(p.id, s) - qtyInCart(p.id, s) > 0);
   const inCart = qtyInCartForProduct(p.id);
   // Распроданный размер остаётся кликабельным: выбрав его, покупатель видит,
   // что размера нет, и может попросить сообщить о поступлении — вместо
@@ -1299,10 +1298,12 @@ function renderModal(){
         </button>`).join('')}
     </div>` : '';
 
-  // Состояния основной кнопки: нет остатка → размер не выбран → готово к добавлению
+  // Состояния основной кнопки: размер не выбран → готово к добавлению.
+  // Отдельного «нет в наличии» нет намеренно: любой размер кликабелен и
+  // ведёт к предзаказу, поэтому кнопка зовёт выбрать размер, а не сообщает
+  // тупик. Выбранный распроданный размер сюда не доходит — там свой блок.
   let addLabel = 'Добавить в корзину', addDisabled = false;
-  if (!anySizeLeft){ addLabel = 'Нет в наличии'; addDisabled = true; }
-  else if (!modalSize){ addLabel = 'Выберите размер'; addDisabled = true; }
+  if (!modalSize){ addLabel = 'Выберите размер'; addDisabled = true; }
   else if (availableForSize <= 0){ addLabel = 'Этого размера нет'; addDisabled = true; }
 
   const soldOutPicked = modalSize && availableForSize <= 0;
