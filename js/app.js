@@ -808,6 +808,20 @@ function buyButtonHtml(product){
   // поэтому кнопка ведёт в карточку товара, где есть размеры и количество.
   return `<button class="btn buy-btn" data-choose-size="${product.id}">Выбрать размер</button>`;
 }
+// Размер скидки за опрос. Через функцию, а не напрямую: config.js у части
+// посетителей может быть старым, без этого поля — тогда 0, и всё, что
+// связано со скидкой, просто не показывается.
+function surveyDiscount(){
+  return Number(CONFIG.surveyDiscount) || 0;
+}
+function priceAfterSurvey(product){
+  return Math.max(product.price - surveyDiscount(), 0);
+}
+function surveyButtonHtml(product, cls){
+  const d = surveyDiscount();
+  const label = d ? `Пройти опрос — скидка ${formatPrice(d)}` : 'Пройти опрос и получить скидку';
+  return `<button class="btn-outline ${cls}" data-open-survey="${product.id}">${label}</button>`;
+}
 // Общая карточка товара — используется и в сетке "Мерч", и на главной,
 // чтобы карточки везде были одного размера и вида. tagText — необязательная
 // плашка в углу ("Популярное" / "Новый дроп"), null — без плашки.
@@ -820,10 +834,11 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         <div class="price">${formatPrice(p.price)}</div>
+        ${surveyDiscount() ? `<div class="price-survey mono">${formatPrice(priceAfterSurvey(p))} после опроса</div>` : ''}
         <div class="stock-flag ${st.cls}">${st.text}</div>
         <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
         ${buyButtonHtml(p)}
-        <button class="btn-outline survey-btn" data-open-survey="${p.id}">Пройти опрос и получить скидку</button>
+        ${surveyButtonHtml(p, 'survey-btn')}
       </div>
     </div>`;
 }
@@ -1143,7 +1158,7 @@ function openSurvey(productId){
 function closeSurvey(){
   const el = document.getElementById('surveyOverlay');
   if (el) el.classList.remove('open');
-  releaseFocus();
+  releaseFocus('surveyOverlay');
   if (!isOpen('productOverlay') && !isOpen('cartDrawer')) lockScroll(false);
 }
 // Ответ одной строкой: у открытого вопроса это сам текст, у вопроса с
@@ -1160,6 +1175,9 @@ function surveyAnswerText(i){
 }
 function surveyText(){
   const lines = [`Ответы на опрос о мерче${surveyProduct ? ' («' + surveyProduct.name + '»)' : ''}:`];
+  // Условие скидки — в самом сообщении, чтобы тому, кто разбирает ответы,
+  // не приходилось помнить, что и кому обещано.
+  if (surveyDiscount()) lines.push(`Скидка за опрос: ${formatPrice(surveyDiscount())}.`);
   SURVEY_QUESTIONS.forEach((def,i)=>{
     lines.push(`${i+1}. ${def.q}\n${surveyAnswerText(i) || '— пропущено'}`);
   });
@@ -1177,7 +1195,7 @@ function renderSurvey(){
       <div class="survey-body survey-done">
         <span class="field-label">Готово</span>
         <h2 class="survey-q">Спасибо за ответы</h2>
-        <p class="order-hint">Отправь их нам в Telegram — и мы пришлём туда же персональную скидку на мерч.</p>
+        <p class="order-hint">Отправьте их нам в Telegram — и мы пришлём туда же скидку${surveyDiscount() ? ' ' + formatPrice(surveyDiscount()) : ''}${surveyProduct ? ` на «${escapeHtml(surveyProduct.name)}»` : ' на мерч'}.</p>
       </div>
       <div class="survey-nav">
         <button class="link-btn" id="surveyRestartBtn">Пройти заново</button>
@@ -1277,6 +1295,9 @@ function renderModal(){
   // Пока размер не выбран — счётчик считает остаток, после выбора распроданного
   // размера тот же счётчик переключается на потолок предзаказа.
   const qtyCap = soldOutPicked ? PREORDER_MAX_QTY : availableForSize;
+  // Товара нет ни в одном размере — покупка тут возможна только предзаказом,
+  // и цену честнее сразу подписать как предзаказную.
+  const preorderOnly = stockLabel(p).cls === 'stock-out';
 
   document.getElementById('modalContent').innerHTML = `
     <button class="modal-close" id="modalCloseBtn" aria-label="Закрыть">×</button>
@@ -1289,7 +1310,7 @@ function renderModal(){
     </div>
     <div class="modal-info">
       <h2 id="modalTitle">${escapeHtml(p.name)}</h2>
-      <div class="price">${formatPrice(p.price)}</div>
+      <div class="price">${formatPrice(p.price)}${preorderOnly ? ` <span class="price-note mono">по предзаказу</span>` : ''}</div>
       <p class="desc">${escapeHtml(p.description)}</p>
       <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
       <div>
@@ -1320,6 +1341,12 @@ function renderModal(){
       <button class="btn" id="addToCartBtn" ${addDisabled?'disabled style="opacity:.4;cursor:not-allowed;"':''}>${addLabel}</button>`}
       ${modalMsg ? `<div class="add-msg">${escapeHtml(modalMsg)}</div>` : ''}
       ${inCart > 0 ? `<button class="btn-outline" id="modalCartBtn">Посмотреть корзину</button>` : ''}
+      ${surveyDiscount() ? `
+      <div class="survey-offer">
+        <div class="survey-offer-title mono">Скидка ${formatPrice(surveyDiscount())}</div>
+        <p class="survey-offer-note">Ответьте на несколько вопросов о мерче — пришлём скидку в Telegram, и ${escapeHtml(p.name)} выйдет в ${formatPrice(priceAfterSurvey(p))}.</p>
+        ${surveyButtonHtml(p, 'btn-full')}
+      </div>` : ''}
     </div>
   `;
   document.getElementById('modalCloseBtn').addEventListener('click', ()=>closeProduct());
@@ -1375,6 +1402,10 @@ function renderModal(){
 function bindModalCartBtn(){
   const cartBtn = document.getElementById('modalCartBtn');
   if (cartBtn) cartBtn.addEventListener('click', ()=>{ closeProduct(); openDrawer(); });
+  // Кнопки внутри модалки навешиваются здесь: bindDynamicHandlers() проходит
+  // по странице после render(), а модалку рисует renderModal() отдельно.
+  const modalSurveyBtn = document.querySelector('#modalContent [data-open-survey]');
+  if (modalSurveyBtn) modalSurveyBtn.addEventListener('click', ()=>openSurvey(p.id));
 }
 bindEl('productOverlay', 'click', e=>{
   if (e.target.id === 'productOverlay') closeProduct();
@@ -1543,8 +1574,11 @@ function trapFocus(container){
   };
   container.addEventListener('keydown', container._trap);
 }
-function releaseFocus(){
-  ['productOverlay','cartDrawer','surveyOverlay'].forEach(id=>{
+// only — снять ловушку только с этого оверлея. Нужно, когда опрос открыт
+// поверх карточки товара: закрывая опрос, нельзя разряжать ловушку карточки,
+// которая остаётся открытой под ним.
+function releaseFocus(only){
+  (only ? [only] : ['productOverlay','cartDrawer','surveyOverlay']).forEach(id=>{
     const el = document.getElementById(id);
     if (el && el._trap){ el.removeEventListener('keydown', el._trap); el._trap = null; }
   });

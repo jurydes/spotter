@@ -413,6 +413,10 @@
   .preorder-flag{color:var(--accent-light);text-transform:uppercase;letter-spacing:0.03em;}
   .survey-btn{width:100%;text-align:center;margin-top:8px;padding:11px 6px;font-size:12px;letter-spacing:0.02em;border-color:var(--accent-light);color:var(--accent-light);}
   .survey-btn:hover{background:var(--accent-light);color:var(--ink);}
+  /* Цена после скидки — строкой под основной ценой: сначала человек видит,
+     сколько стоит сейчас, и только потом, во сколько обойдётся с опросом. */
+  .price-survey{font-size:13px;color:var(--accent-light);letter-spacing:0.02em;margin-top:-2px;}
+  .price-note{font-size:12px;color:var(--paper-dim);letter-spacing:0.04em;text-transform:lowercase;}
   .popular-tag{
     position:absolute;top:8px;left:8px;z-index:2;
     background:var(--accent);color:var(--paper);font-family:var(--f-mono);font-size:11px;
@@ -499,6 +503,15 @@
   .zoom-open:focus-visible .zoom-hint{opacity:1;}
   /* на тач-устройствах наведения нет — подсказку показываем всегда */
   @media (hover:none){ .zoom-hint{opacity:1;} }
+
+  /* Предложение скидки в карточке товара — отдельным блоком внизу, ниже
+     кнопки покупки: сначала человек решает про сам товар, потом видит,
+     как выйдет дешевле. */
+  .survey-offer{border:1px solid var(--accent-light);padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .survey-offer-title{font-size:13px;color:var(--accent-light);letter-spacing:0.04em;text-transform:uppercase;}
+  .survey-offer-note{font-size:14px;color:var(--paper-dim);margin:0;font-family:var(--f-body);}
+  .survey-offer .btn-full{border-color:var(--accent-light);color:var(--accent-light);font-size:13px;}
+  .survey-offer .btn-full:hover{background:var(--accent-light);color:var(--ink);}
 
   /* ================= ОПРОС ПРО МЕРЧ ================= */
   /* Одна карточка, один вопрос за раз — никакой сетки как у .modal:
