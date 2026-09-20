@@ -11,6 +11,13 @@ let modalQty = 1;
 let modalMsg = '';           // подтверждение добавления, живёт как состояние модалки
 let modalPhoto = 0;          // какое фото товара показано в галерее
 let checkoutOrder = null;    // сформированный заказ, ждёт подтверждения отправки
+// Поля оформления держим состоянием, а не читаем из DOM по факту: подвал
+// корзины перерисовывается при каждом изменении количества, и набранные
+// имя с телефоном иначе стирались бы на ровном месте.
+let checkoutForm = { name:'', phone:'', delivery:'Самовывоз', city:'', comment:'', point:null };
+let cdekPoints = [];         // найденные ПВЗ по последнему запросу
+let cdekState = '';          // '' | 'loading' | 'error' | 'empty'
+let cdekGeo = null;          // координаты покупателя для сортировки «ближайшие»
 
 /* =====================================================================
    UTIL
@@ -1112,6 +1119,10 @@ let surveyAnswers = [];
 let surveySize = null;       // размер, выбранный на последнем шаге опроса
 let surveyQty = 1;
 let surveyMsg = '';          // подтверждение добавления на последнем шаге
+let surveyError = '';        // «ответьте на вопрос» под текущим шагом
+// Идентификатор прохождения: по нему ответы и оформленный заказ сходятся
+// в одну строку таблицы. Живёт вместе с ответами в localStorage.
+let surveyId = '';
 // Пройденный опрос, который ждёт отправки вместе с заказом. Лежит в
 // localStorage рядом с корзиной: ответы на восемь вопросов жалко терять
 // из-за случайного обновления страницы между опросом и оформлением.
@@ -1122,6 +1133,8 @@ function saveSurveyResult(){
   // Вопрос сохраняем вместе с ответом: если формулировки потом поменяются,
   // уже отправленные ответы не должны разъехаться с новыми вопросами.
   surveyResult = {
+    id: surveyId,
+    product: surveyProduct ? surveyProduct.name : '',
     discount: surveyDiscount(),
     lines: SURVEY_QUESTIONS.map((def,i)=>({ q: def.q, a: surveyAnswerText(i) }))
   };
@@ -1132,6 +1145,7 @@ function loadSurveyResult(){
     const raw = localStorage.getItem(SURVEY_KEY);
     const data = raw ? JSON.parse(raw) : null;
     surveyResult = (data && Array.isArray(data.lines)) ? data : null;
+    if (surveyResult && surveyResult.id) surveyId = surveyResult.id;
   }catch(e){ surveyResult = null; }
 }
 function clearSurveyResult(){
@@ -1152,6 +1166,68 @@ function surveyOptions(def){
 }
 function blankSurveyAnswers(){
   return SURVEY_QUESTIONS.map(()=>({ text:'', picked:[], other:'' }));
+}
+
+// Пустой ответ дальше не пускает: опрос ради скидки легко «протыкать»
+// насквозь, и тогда в таблице лежат восемь пустых строк вместо мнений.
+// Просим минимум: одну непробельную букву в открытом вопросе, один
+// выбранный вариант — в вопросе с вариантами.
+function surveyStepError(i){
+  const def = SURVEY_QUESTIONS[i];
+  const a = surveyAnswers[i] || { text:'', picked:[], other:'' };
+  if (!def.options){
+    return (a.text || '').trim() ? '' : 'Ответьте на вопрос — хотя бы парой слов.';
+  }
+  if (!a.picked.length) return 'Выберите хотя бы один вариант.';
+  // «Другое» без расшифровки — тот же пустой ответ, только окольным путём
+  if (a.picked.includes(SURVEY_OTHER) && !(a.other || '').trim()){
+    return 'Допишите свой вариант в поле под списком.';
+  }
+  return '';
+}
+
+/* ---------------------------------------------------------------------
+   ОТПРАВКА ОТВЕТОВ В GOOGLE-ТАБЛИЦУ.
+
+   Идёт параллельно телеграму и ничего не блокирует: таблица нужна, чтобы
+   читать ответы структурно, а не выуживать их из переписки. Приёмник —
+   Google Apps Script (see serverless/google-sheets), он принимает POST и
+   дописывает строку.
+
+   mode:'no-cors' — потому что Apps Script не отдаёт CORS-заголовки. Ответ
+   мы прочитать не сможем (и не пытаемся), но запрос уходит и строка
+   пишется. Content-Type тоже не наш каприз: с text/plain браузер шлёт
+   запрос напрямую, без предварительного OPTIONS, который Apps Script
+   не обработает.
+   --------------------------------------------------------------------- */
+function sendToSheet(payload){
+  const url = CONFIG.surveySheetUrl;
+  if (!url) return; // приёмник не настроен — молча ничего не делаем
+  try{
+    fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      keepalive: true, // запрос доживёт, даже если страница уже уходит в телеграм
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).catch(()=>{});
+  }catch(e){ /* отправка в таблицу не должна мешать заказу */ }
+}
+// Ответы уезжают один раз — в момент, когда человек дошёл до конца опроса.
+// Дальше он может добавлять размеры и передумывать, ответы от этого
+// не меняются, а дубли строк в таблице нам не нужны.
+let surveySheetSent = false;
+function sendSurveyToSheet(){
+  if (surveySheetSent || !surveyId) return;
+  surveySheetSent = true;
+  sendToSheet({
+    type: 'survey',
+    id: surveyId,
+    ts: new Date().toISOString(),
+    product: surveyProduct ? surveyProduct.name : '',
+    discount: surveyDiscount(),
+    answers: SURVEY_QUESTIONS.map((def,i)=>({ q: def.q, a: surveyAnswerText(i) }))
+  });
 }
 
 // Оверлей опроса берём из разметки, а если его там нет — создаём сами.
@@ -1183,6 +1259,8 @@ function openSurvey(productId, presetSize){
   surveySize = presetSize || null;
   surveyQty = 1;
   surveyMsg = '';
+  surveyError = '';
+  surveyId = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const overlay = surveyOverlayEl();
   renderSurvey();
   overlay.classList.add('open');
@@ -1342,6 +1420,7 @@ function renderSurvey(){
       <div class="survey-bar"><div class="survey-bar-fill" style="width:${Math.round((surveyStep/total)*100)}%"></div></div>
       <h2 class="survey-q">${escapeHtml(def.q)}</h2>
       ${fieldHtml}
+      <div class="checkout-error mono${surveyError ? ' show' : ''}" id="surveyErr">${escapeHtml(surveyError)}</div>
     </div>
     <div class="survey-nav">
       ${surveyStep > 0 ? `<button class="btn-outline" id="surveyBackBtn">Назад</button>` : `<span></span>`}
@@ -1349,9 +1428,17 @@ function renderSurvey(){
     </div>
   `;
   document.getElementById('surveyCloseBtn').addEventListener('click', closeSurvey);
+  // Ошибку гасим прямо на вводе, не перерисовывая шаг: перерисовка сбросила бы
+  // каретку в начало поля посреди набора текста.
+  const dropError = ()=>{
+    if (!surveyError) return;
+    surveyError = '';
+    const errEl = document.getElementById('surveyErr');
+    if (errEl) errEl.classList.remove('show');
+  };
   const input = document.getElementById('surveyInput');
   if (input){
-    input.addEventListener('input', ()=>{ answer.text = input.value; });
+    input.addEventListener('input', ()=>{ answer.text = input.value; dropError(); });
     input.focus();
   }
   el.querySelectorAll('[data-opt]').forEach(btn=>{
@@ -1360,17 +1447,27 @@ function renderSurvey(){
       const at = answer.picked.indexOf(opt);
       if (at === -1) answer.picked.push(opt);
       else answer.picked.splice(at, 1);
+      surveyError = '';
       renderSurvey(); // перерисовка нужна: «Другое» открывает и прячет поле ввода
     });
   });
   const other = document.getElementById('surveyOther');
   if (other){
-    other.addEventListener('input', ()=>{ answer.other = other.value; });
+    other.addEventListener('input', ()=>{ answer.other = other.value; dropError(); });
     if (!answer.other) other.focus();
   }
   const backBtn = document.getElementById('surveyBackBtn');
-  if (backBtn) backBtn.addEventListener('click', ()=>{ surveyStep--; renderSurvey(); });
-  document.getElementById('surveyNextBtn').addEventListener('click', ()=>{ surveyStep++; renderSurvey(); });
+  if (backBtn) backBtn.addEventListener('click', ()=>{ surveyError = ''; surveyStep--; renderSurvey(); });
+  document.getElementById('surveyNextBtn').addEventListener('click', ()=>{
+    const err = surveyStepError(surveyStep);
+    if (err){ surveyError = err; renderSurvey(); return; }
+    surveyError = '';
+    surveyStep++;
+    // Дошли до конца — ответы уезжают в таблицу сразу, не дожидаясь заказа:
+    // человек может закрыть окно и не купить ничего, ответы всё равно ценны.
+    if (surveyStep >= total) sendSurveyToSheet();
+    renderSurvey();
+  });
 }
 
 function renderModal(){
@@ -1768,19 +1865,24 @@ function renderDrawer(){
     <div>
       <span class="field-label">Формат получения</span>
       <div class="radio-row">
-        <label class="radio-opt"><input type="radio" name="delivery" value="Самовывоз" checked> Самовывоз</label>
-        <label class="radio-opt"><input type="radio" name="delivery" value="Доставка"> Доставка</label>
+        <label class="radio-opt"><input type="radio" name="delivery" value="Самовывоз" ${checkoutForm.delivery==='Самовывоз'?'checked':''}> Самовывоз</label>
+        <label class="radio-opt"><input type="radio" name="delivery" value="Доставка" ${checkoutForm.delivery==='Доставка'?'checked':''}> Доставка</label>
       </div>
     </div>
     <div>
-      <span class="field-label">Имя и контакт для связи</span>
-      <input type="text" id="contactField" placeholder="Имя, телефон или ник в Telegram">
+      <span class="field-label">Фамилия и имя</span>
+      <input type="text" id="nameField" autocomplete="name" placeholder="Иванов Иван" value="${escapeHtml(checkoutForm.name)}">
     </div>
     <div>
-      <span class="field-label">Комментарий к заказу (необязательно)</span>
-      <textarea id="commentField" rows="2" placeholder="Адрес доставки, пожелания по размеру и т.д."></textarea>
+      <span class="field-label">Телефон</span>
+      <input type="tel" id="phoneField" autocomplete="tel" inputmode="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(checkoutForm.phone)}">
     </div>
-    <div class="checkout-error mono" id="checkoutError">Укажи имя или контакт, чтобы оформить заказ.</div>
+    <div id="deliveryBlock"></div>
+    <div>
+      <span class="field-label">Комментарий к заказу (необязательно)</span>
+      <textarea id="commentField" rows="2" placeholder="Пожелания по размеру, удобное время связи и т.д.">${escapeHtml(checkoutForm.comment)}</textarea>
+    </div>
+    <div class="checkout-error mono" id="checkoutError"></div>
     <button class="btn btn-full" id="checkoutBtn">Оформить заказ в Telegram</button>
   `;
 
@@ -1796,7 +1898,213 @@ function renderDrawer(){
     const [id,size] = b.dataset.remove.split('|');
     removeFromCart(id, size);
   }));
+  // Поля пишут прямо в состояние: подвал корзины перерисовывается при любом
+  // изменении количества, и без этого набранное имя пропадало бы.
+  const bindField = (id, key)=>{
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', ()=>{ checkoutForm[key] = el.value; });
+  };
+  bindField('nameField', 'name');
+  bindField('phoneField', 'phone');
+  bindField('commentField', 'comment');
+  foot.querySelectorAll('input[name=delivery]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      checkoutForm.delivery = r.value;
+      renderDeliveryBlock(); // меняется только блок получения, остальное не трогаем
+    });
+  });
+  renderDeliveryBlock();
   document.getElementById('checkoutBtn').addEventListener('click', handleCheckout);
+}
+
+/* Блок «куда получать». Живёт отдельной функцией, потому что перерисовывается
+   сам по себе: при смене формата, при поиске ПВЗ и при выборе пункта. */
+function renderDeliveryBlock(){
+  const box = document.getElementById('deliveryBlock');
+  if (!box) return;
+
+  if (checkoutForm.delivery === 'Самовывоз'){
+    box.innerHTML = `<p class="field-note">Место и время самовывоза согласуем в Telegram после заказа.</p>`;
+    return;
+  }
+
+  // Интеграция со СДЭК не настроена — спрашиваем адрес текстом, как раньше.
+  if (!cdekEnabled()){
+    box.innerHTML = `
+      <span class="field-label">Адрес доставки</span>
+      <textarea id="addressField" rows="2" placeholder="Город, улица, дом, квартира, индекс">${escapeHtml(checkoutForm.city)}</textarea>`;
+    const a = document.getElementById('addressField');
+    if (a) a.addEventListener('input', ()=>{ checkoutForm.city = a.value; });
+    return;
+  }
+
+  const p = checkoutForm.point;
+  const listHtml = cdekState === 'loading'
+    ? `<div class="cdek-note mono">Ищу пункты выдачи…</div>`
+    : cdekState === 'error'
+      ? `<div class="cdek-note mono">Не получилось получить список СДЭК. Попробуйте ещё раз или напишите адрес в комментарии.</div>`
+      : cdekState === 'empty'
+        ? `<div class="cdek-note mono">В этом городе пунктов не нашлось — проверьте название.</div>`
+        : cdekPoints.length
+          ? `<div class="cdek-list">${cdekPoints.slice(0, 40).map(pt=>`
+              <button class="cdek-item ${p && p.code===pt.code ? 'active':''}" data-cdek="${escapeHtml(pt.code)}">
+                <span class="cdek-addr">${escapeHtml(pt.address || pt.name || '')}</span>
+                <span class="cdek-meta mono">${pt.dist != null && isFinite(pt.dist) ? `${pt.dist.toFixed(1)} км · ` : ''}${escapeHtml(pt.work_time || '')}</span>
+              </button>`).join('')}</div>`
+          : '';
+
+  box.innerHTML = `
+    <span class="field-label">Пункт выдачи СДЭК</span>
+    ${p ? `
+      <div class="cdek-picked">
+        <div>
+          <b>${escapeHtml(p.address || p.name || '')}</b>
+          <div class="cdek-meta mono">${escapeHtml(p.city || '')}${p.work_time ? ' · ' + escapeHtml(p.work_time) : ''}</div>
+        </div>
+        <button class="link-btn" id="cdekResetBtn">выбрать другой</button>
+      </div>` : `
+      <div class="cdek-search">
+        <input type="text" id="cdekCityField" placeholder="Город — например, Москва" value="${escapeHtml(checkoutForm.city)}">
+        <button class="btn-outline" id="cdekFindBtn">Найти</button>
+      </div>
+      ${navigator.geolocation ? `<button class="link-btn" id="cdekGeoBtn">Сначала ближайшие ко мне</button>` : ''}
+      ${listHtml}
+    `}`;
+
+  const cityEl = document.getElementById('cdekCityField');
+  if (cityEl){
+    cityEl.addEventListener('input', ()=>{ checkoutForm.city = cityEl.value; });
+    cityEl.addEventListener('keydown', e=>{
+      if (e.key === 'Enter'){ e.preventDefault(); searchCdekPoints(); }
+    });
+  }
+  bindEl('cdekFindBtn', 'click', searchCdekPoints);
+  bindEl('cdekGeoBtn', 'click', ()=>{
+    // Координаты сортируют уже найденный список, поэтому если его ещё нет —
+    // сначала ищем по городу, иначе кнопка визуально ничего не делает.
+    if (!cdekPoints.length) searchCdekPoints().then(useMyLocation);
+    else useMyLocation();
+  });
+  bindEl('cdekResetBtn', 'click', ()=>{ checkoutForm.point = null; renderDeliveryBlock(); });
+  box.querySelectorAll('[data-cdek]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      checkoutForm.point = cdekPoints.find(x => x.code === btn.dataset.cdek) || null;
+      renderDeliveryBlock();
+    });
+  });
+}
+
+/* =====================================================================
+   КОНТАКТНЫЕ ДАННЫЕ.
+
+   ФИО и телефон — отдельными полями и обязательные в обоих форматах
+   получения. Раньше было одно поле «имя, телефон или ник», и в заказ
+   приходило что угодно: то один ник без связи, то имя без телефона.
+   Для ПВЗ СДЭК фамилия нужна по-настоящему — посылку выдают по документу.
+   ===================================================================== */
+function phoneDigits(raw){
+  return String(raw || '').replace(/\D/g, '');
+}
+// Российский номер в любом написании: +7, 8, без кода — лишь бы
+// набралось 10 значащих цифр. Чужие номера тоже пропускаем, если это
+// похоже на международный: запрещать человеку с +375 оформить заказ глупо.
+function phoneError(raw){
+  const d = phoneDigits(raw);
+  if (!d) return 'Оставьте телефон — по нему подтверждаем заказ.';
+  if (d.length < 10) return 'Телефон выглядит коротким — проверьте номер.';
+  if (d.length > 15) return 'Телефон выглядит слишком длинным — проверьте номер.';
+  return '';
+}
+function formatPhone(raw){
+  const d = phoneDigits(raw);
+  // 8 и 7 в начале — один и тот же российский номер, приводим к +7
+  if (d.length === 11 && (d[0] === '8' || d[0] === '7')){
+    const n = d.slice(1);
+    return `+7 ${n.slice(0,3)} ${n.slice(3,6)}-${n.slice(6,8)}-${n.slice(8)}`;
+  }
+  if (d.length === 10) return `+7 ${d.slice(0,3)} ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8)}`;
+  return '+' + d;
+}
+function nameError(raw){
+  const parts = String(raw || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'Укажите фамилию и имя.';
+  // Посылку в ПВЗ выдают по паспорту на конкретное ФИО, одного имени мало
+  if (parts.length < 2 || parts.some(p => p.length < 2)){
+    return 'Нужны фамилия и имя полностью — по ним выдают заказ.';
+  }
+  return '';
+}
+
+/* =====================================================================
+   ПУНКТЫ ВЫДАЧИ СДЭК.
+
+   Список ПВЗ отдаёт только API СДЭК, и только по токену: публичный
+   pvzlist закрыт (410), api.cdek.ru/v2 без авторизации отвечает 401.
+   Ключи в браузер класть нельзя, да и CORS там нет, поэтому между сайтом
+   и СДЭК стоит своя функция — serverless/cdek-points. Она держит токен,
+   ходит за списком и отдаёт нам уже урезанный JSON.
+
+   Пока адрес функции в CONFIG.cdekPointsUrl пустой, блок с картой ПВЗ
+   не показывается вообще, а адрес доставки спрашиваем текстом — сайт
+   работает и без настроенной интеграции.
+   ===================================================================== */
+function cdekEnabled(){ return !!(CONFIG.cdekPointsUrl || '').trim(); }
+
+// Расстояние по прямой, км. Нужно только для сортировки «сначала ближние»,
+// поэтому землю считаем шаром — разница с настоящей геодезией здесь
+// меньше, чем разница между прямой и реальным маршрутом.
+function distanceKm(a, b){
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const s = Math.sin(dLat/2) ** 2 +
+            Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon/2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function sortCdekPoints(){
+  if (!cdekGeo) return;
+  cdekPoints.forEach(p=>{
+    p.dist = (typeof p.lat === 'number' && typeof p.lon === 'number')
+      ? distanceKm(cdekGeo, p) : Infinity;
+  });
+  cdekPoints.sort((a,b)=>a.dist - b.dist);
+}
+async function searchCdekPoints(){
+  const city = (checkoutForm.city || '').trim();
+  if (!city || !cdekEnabled()) return;
+  cdekState = 'loading';
+  cdekPoints = [];
+  renderDeliveryBlock();
+  try{
+    const res = await fetch(`${CONFIG.cdekPointsUrl}?city=${encodeURIComponent(city)}`);
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    cdekPoints = Array.isArray(data.points) ? data.points : [];
+    sortCdekPoints();
+    cdekState = cdekPoints.length ? '' : 'empty';
+  }catch(e){
+    cdekState = 'error';
+  }
+  renderDeliveryBlock();
+}
+// Геолокация — не обязательный шаг, а ускоритель: она только пересортировывает
+// уже найденный по городу список. Город всё равно спрашиваем руками, потому
+// что по координатам СДЭК город не отдаёт, а гадать за покупателя не стоит.
+function useMyLocation(){
+  if (!navigator.geolocation) return;
+  const btn = document.getElementById('cdekGeoBtn');
+  if (btn){ btn.disabled = true; btn.textContent = 'Определяю…'; }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      cdekGeo = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      sortCdekPoints();
+      renderDeliveryBlock();
+    },
+    ()=>{
+      cdekGeo = null;
+      renderDeliveryBlock(); // браузер отказал — просто остаёмся на списке по городу
+    },
+    { timeout: 8000, maximumAge: 300000 }
+  );
 }
 
 /* =====================================================================
@@ -1807,15 +2115,37 @@ function renderDrawer(){
    ===================================================================== */
 function handleCheckout(){
   const errEl = document.getElementById('checkoutError');
-  const contact = document.getElementById('contactField').value.trim();
-  const comment = document.getElementById('commentField').value.trim();
-  const delivery = document.querySelector('input[name=delivery]:checked').value;
-
-  if (!contact){
-    errEl.textContent = 'Укажи имя или контакт, чтобы оформить заказ.';
+  const fail = (msg, focusId)=>{
+    errEl.textContent = msg;
     errEl.classList.add('show');
-    return;
+    const el = focusId && document.getElementById(focusId);
+    if (el) el.focus();
+  };
+  const name = (checkoutForm.name || '').trim();
+  const phone = (checkoutForm.phone || '').trim();
+  const comment = (checkoutForm.comment || '').trim();
+  const delivery = checkoutForm.delivery;
+
+  // ФИО и телефон нужны в обоих форматах: на самовывозе — чтобы отдать заказ
+  // тому, кто за ним пришёл, при доставке — потому что СДЭК без них посылку
+  // не примет.
+  const nameErr = nameError(name);
+  if (nameErr) return fail(nameErr, 'nameField');
+  const phoneErr = phoneError(phone);
+  if (phoneErr) return fail(phoneErr, 'phoneField');
+
+  let destination = '';
+  if (delivery === 'Доставка'){
+    if (cdekEnabled()){
+      if (!checkoutForm.point) return fail('Выберите пункт выдачи СДЭК.', 'cdekCityField');
+      const p = checkoutForm.point;
+      destination = `ПВЗ СДЭК ${p.code}${p.city ? ', ' + p.city : ''}: ${p.address || p.name || ''}`;
+    }else{
+      if (!(checkoutForm.city || '').trim()) return fail('Укажите адрес доставки.', 'addressField');
+      destination = checkoutForm.city.trim();
+    }
   }
+
   if (cart.length === 0) return;
 
   // Проверка по актуальному каталогу: остатки мог поменять продавец,
@@ -1851,7 +2181,9 @@ function handleCheckout(){
     lines.push(`С учётом скидки: ${formatPrice(Math.max(cartTotalPrice() - surveyResult.discount, 0))}`);
   }
   lines.push(`Формат получения: ${delivery}`);
-  lines.push(`Контакт: ${contact}`);
+  if (destination) lines.push(`Куда: ${destination}`);
+  lines.push(`ФИО: ${name}`);
+  lines.push(`Телефон: ${formatPhone(phone)}`);
   if (comment) lines.push(`Комментарий: ${comment}`);
   // Ответы опроса едут тем же сообщением, что и заказ: иначе продавцу
   // пришлось бы сводить два разных сообщения от одного человека.
@@ -1861,6 +2193,26 @@ function handleCheckout(){
   // Поэтому корзину здесь не трогаем: она очистится, когда покупатель
   // подтвердит отправку. Остатки не списываем вообще — сайт не может знать,
   // дошёл ли заказ и подтверждён ли он продавцом.
+  // Заказ уезжает в ту же таблицу и той же строкой, что и ответы опроса
+  // (сходятся по id). Так видно не только что люди отвечали, но и кто из
+  // них в итоге заказал. Без опроса строка просто будет без ответов.
+  sendToSheet({
+    type: 'order',
+    id: surveyResult && surveyResult.id ? surveyResult.id : ('O' + Date.now().toString(36)),
+    ts: new Date().toISOString(),
+    name,
+    phone: formatPhone(phone),
+    delivery,
+    destination,
+    comment,
+    items: cart.map(i=>{
+      const p = findProduct(i.productId);
+      return `${p ? p.name : i.productId} / ${i.size} / ${i.qty} шт.`;
+    }).join('; '),
+    total: cartTotalPrice(),
+    discount: (surveyResult && surveyResult.discount) || 0
+  });
+
   checkoutOrder = { text, url: `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}` };
   renderDrawer();
 }

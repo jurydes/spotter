@@ -57,6 +57,7 @@ jobs:
             --delete \
             --exclude ".git/*" \
             --exclude ".github/*" \
+            --exclude "serverless/*" \
             --exclude "admin/*" \
             --exclude "css/*" \
             --exclude "js/*" \

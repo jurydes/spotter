@@ -680,6 +680,39 @@
   textarea:focus, input[type=text]:focus{border-color:var(--steel);outline:none;}
   .checkout-error{font-family:var(--f-mono);font-size:13px;color:var(--accent-light);display:none;}
   .checkout-error.show{display:block;}
+  .field-note{font-family:var(--f-mono);font-size:13px;color:var(--paper-dim);margin:0;}
+  input[type=tel]{
+    width:100%;background:var(--surface);border:1px solid var(--line);color:var(--paper);
+    font-family:var(--f-body);font-size:15px;padding:10px 12px;
+  }
+  input[type=tel]:focus{border-color:var(--steel);outline:none;}
+
+  /* ================= ПВЗ СДЭК ================= */
+  .cdek-search{display:flex;gap:8px;}
+  .cdek-search input{flex:1 1 auto;min-width:0;}
+  .cdek-search .btn-outline{flex:0 0 auto;padding:10px 16px;}
+  .cdek-note{font-size:13px;color:var(--paper-dim);padding:8px 0;}
+  /* Список прокручивается внутри себя: в Москве пунктов под тысячу,
+     иначе они вытолкнут кнопку заказа далеко вниз. */
+  .cdek-list{
+    max-height:220px;overflow-y:auto;border:1px solid var(--line);
+    display:flex;flex-direction:column;margin-top:8px;
+  }
+  .cdek-item{
+    display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;
+    background:none;border:none;border-bottom:1px solid var(--line);
+    color:var(--paper);padding:10px 12px;width:100%;cursor:pointer;
+  }
+  .cdek-item:last-child{border-bottom:none;}
+  .cdek-item:hover{background:var(--surface);}
+  .cdek-item.active{background:var(--surface);color:var(--accent-light);}
+  .cdek-addr{font-size:14px;line-height:1.35;}
+  .cdek-meta{font-size:12px;color:var(--paper-dim);}
+  .cdek-picked{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+    border:1px solid var(--line);padding:10px 12px;
+  }
+  .cdek-picked b{font-size:14px;font-weight:500;line-height:1.35;}
   .btn-full{width:100%;text-align:center;}
 
   /* ================= FOOTER ================= */
