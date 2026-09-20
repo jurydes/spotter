@@ -192,7 +192,9 @@
         "XL": 5
       },
       "images": [
-        "assets/merch/spotter-hoodie-black.jpg"
+        "assets/merch/spotter-hoodie-black-1.jpg",
+        "assets/merch/spotter-hoodie-black-2.jpg",
+        "assets/merch/spotter-hoodie-black-size.jpg"
       ],
       "popular": true,
       "active": true,

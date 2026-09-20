@@ -358,7 +358,11 @@ const CONFIG = {
       stock: { S: 5, M: 5, L: 5, XL: 5 },
       popular: true,
       active: true,
-      images: ['assets/merch/spotter-hoodie-black.jpg']
+      images: [
+        'assets/merch/spotter-hoodie-black-1.jpg',
+        'assets/merch/spotter-hoodie-black-2.jpg',
+        'assets/merch/spotter-hoodie-black-size.jpg'
+      ]
     }
   ]
 };
