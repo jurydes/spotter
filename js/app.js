@@ -23,6 +23,11 @@ let checkoutForm = { name:'', phone:'', telegram:'', delivery:'Самовыво�
 let cdekPoints = [];         // найденные ПВЗ по последнему запросу
 let cdekState = '';          // '' | 'loading' | 'error' | 'empty'
 let cdekGeo = null;          // координаты покупателя для сортировки «ближайшие»
+// Объяснение, почему корзина изменилась не по воле покупателя (размер
+// разобрали, пока он оформлял). Живёт до следующего действия: если позицию
+// убрали целиком, корзина становится пустой, и написать об этом внизу
+// формы уже негде — сообщение должно быть видно и над пустой корзиной.
+let cartNotice = '';
 
 /* =====================================================================
    UTIL
@@ -330,11 +335,47 @@ function productPhoto(p, index){
    Настоящая общая на всех посетителей бронь возможна только с бэкендом:
    тогда getStockFor подменяется запросом к нему, остальной код не меняется.
    ===================================================================== */
+/* Остаток = тираж из админки минус то, что уже заказали другие.
+
+   Заказы копятся в таблице (лист «Резерв»), оттуда и берётся вычитаемое.
+   Раньше сайт не вычитал ничего: восемь человек могли заказать пять худи
+   размера L, и разбираться с этим пришлось бы в переписке. Для тиража
+   с номерами на вещах это особенно плохо — номера уже выданы.
+
+   Если таблица недоступна, reservedStock пуст, и остаток просто равен
+   тиражу: продавать без связи лучше, чем не продавать вообще. Настоящая
+   проверка всё равно происходит на стороне таблицы в момент заказа. */
+let reservedStock = {};       // 'id|размер' -> сколько занято
 function getStockFor(productId, size){
   const p = findProduct(productId);
   if (!p || !p.stock) return 0;
   const v = p.stock[size];
-  return typeof v === 'number' ? v : 0;
+  if (typeof v !== 'number') return 0;
+  const taken = reservedStock[productId + '|' + size] || 0;
+  return Math.max(v - taken, 0);
+}
+// Тираж как он задан в админке, без вычета резерва. Нужен таблице:
+// она знает, сколько заказано, но не знает, сколько всего выпускается.
+function stockLimitFor(productId, size){
+  const p = findProduct(productId);
+  const v = p && p.stock ? p.stock[size] : null;
+  return typeof v === 'number' ? v : null;
+}
+function applyReserved(map){
+  if (!map || typeof map !== 'object') return;
+  reservedStock = map;
+}
+async function loadReservedStock(){
+  if (!CONFIG.surveySheetUrl) return;
+  try{
+    const res = await fetch(`${CONFIG.surveySheetUrl}?stock=1`);
+    const data = res.ok ? await res.json() : null;
+    if (data && data.reserved){
+      applyReserved(data.reserved);
+      render(); // остатки на витрине могли измениться
+      if (modalProduct) renderModal();
+    }
+  }catch(e){ /* нет связи — торгуем по тиражу из админки */ }
 }
 
 /* =====================================================================
@@ -378,6 +419,7 @@ function addToCart(productId, size, qty){
   const existing = cart.find(c => c.productId === productId && c.size === size);
   if (existing) existing.qty += add;
   else cart.push({ productId, size, qty: add });
+  cartNotice = ''; // объяснение прошлой правки корзины больше не актуально
   saveCart();
   renderCartCount();
   return add === qty;
@@ -1865,13 +1907,16 @@ function renderDrawer(){
     return;
   }
 
+  const noticeHtml = cartNotice
+    ? `<div class="dup-warn">${escapeHtml(cartNotice)}</div>` : '';
+
   if (cart.length === 0){
-    body.innerHTML = `<div class="empty-cart">Корзина пуста</div>`;
+    body.innerHTML = noticeHtml + `<div class="empty-cart">Корзина пуста</div>`;
     foot.innerHTML = '';
     return;
   }
 
-  body.innerHTML = cart.map(item=>{
+  body.innerHTML = noticeHtml + cart.map(item=>{
     const p = findProduct(item.productId);
     if (!p) return '';
     const max = getStockFor(item.productId, item.size);
@@ -2387,7 +2432,10 @@ async function handleCheckout(){
   const items = cart.map(i=>{
     const p = findProduct(i.productId);
     return { id: i.productId, name: p ? p.name : i.productId, size: i.size, qty: i.qty,
-             price: p ? p.price : 0 };
+             price: p ? p.price : 0,
+             // Тираж отдаём таблице: она считает заказанное, но про размер
+             // тиража знает только админка, то есть только сайт.
+             limit: stockLimitFor(i.productId, i.size) };
   });
   const total = cartTotalPrice();
   const discount = (surveyResult && surveyResult.discount) || 0;
@@ -2411,6 +2459,26 @@ async function handleCheckout(){
     discount
   });
 
+  // Размер разобрали, пока человек заполнял форму. Таблица проверяет это
+  // заново, без кэша, и в таком случае не выдаёт номер и ничего не пишет —
+  // заказ не состоялся. Возвращаем покупателя в корзину с честным остатком.
+  if (res && res.ok === false && Array.isArray(res.oversold) && res.oversold.length){
+    applyReserved(res.reserved);
+    cart = cart.filter(c=>{
+      const miss = res.oversold.find(o => o.id === c.productId && o.size === c.size);
+      if (!miss) return true;
+      c.qty = Math.min(c.qty, miss.left);
+      return c.qty > 0;
+    });
+    saveCart();
+    const what = res.oversold.map(o=>`${o.name || ''} ${o.size}`.trim()).join(', ');
+    cartNotice = `Пока вы оформляли, это разобрали: ${what}. Корзину поправили — проверьте и оформите заново.`;
+    renderCartCount();
+    renderDrawer();
+    render();
+    return;
+  }
+
   // Дошёл ли заказ до нас. От этого зависит, что мы скажем покупателю:
   // обещать «с вами свяжутся», когда заказ никуда не уехал, нельзя —
   // человек будет ждать звонка, которого не будет.
@@ -2420,6 +2488,7 @@ async function handleCheckout(){
   // оформиться: номер тогда местный, по дате и случайному хвосту. Он так же
   // годится, чтобы найти заказ в переписке, просто не сквозной.
   const number = delivered ? res.order : localOrderNumber();
+  if (res && res.reserved) applyReserved(res.reserved); // витрина сразу видит новый остаток
   const unitsById = {};
   if (res && Array.isArray(res.units)){
     res.units.forEach(u=>{ unitsById[(u.id || '') + '|' + (u.size || '')] = u.numbers || []; });
@@ -2464,6 +2533,7 @@ async function handleCheckout(){
   // возвращался, видел свои вещи на месте и оформлял их второй раз.
   // Состав никуда не делся — он в экране заказа и в тексте сообщения.
   cart = [];
+  cartNotice = '';
   saveCart();
   clearSurveyResult(); // скидка уже учтена в этом заказе
   renderCartCount();
@@ -2505,6 +2575,7 @@ function init(){
   applyRoute(); // разбирает адрес и рисует нужный раздел
   refreshViews(); // не ждём: страница уже нарисована со снимком просмотров
   loadContentData(); // не ждём: то же самое, но для выпусков и мерча из админки
+  loadReservedStock(); // и остатки с учётом уже оформленных заказов
   // шрифты грузятся асинхронно: до их загрузки ширина слов другая — пересчитываем
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitHeroLayout);
   let resizeTimer;

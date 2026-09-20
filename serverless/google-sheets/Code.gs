@@ -17,6 +17,15 @@
 
 var SHEET_NAME = 'Ответы';
 
+// Лист резерва: по строке на каждую заказанную позицию. Сделан отдельным
+// и открытым, а не скрытым счётчиком, ровно для одного действия: если
+// покупатель пропал и не оплатил, в колонке «Отменён» ставится что угодно,
+// и вещь тут же возвращается в продажу. Без этого неоплаченные заказы
+// навсегда съедали бы тираж, и витрина показывала бы «разобрали», когда
+// на самом деле не продано ничего.
+var RESERVE_SHEET = 'Резерв';
+var RESERVE_COLUMNS = ['Номер заказа', 'Дата', 'ID товара', 'Товар', 'Размер', 'Кол-во', 'Отменён'];
+
 // Куда уходит письмо о новом заказе. Адрес держим здесь, а не в конфиге
 // сайта: js/config.js открыт любому посетителю, и почта из него уехала бы
 // в спам-базы. Пустая строка — письма не шлются, заказ только пишется
@@ -62,10 +71,71 @@ function doPost(e) {
   }
 }
 
-// Открыть адрес скрипта в браузере — быстрый способ убедиться,
-// что веб-приложение опубликовано и доступно без входа в аккаунт.
-function doGet() {
+// ?stock=1 — сколько уже зарезервировано; этим сайт уменьшает остатки.
+// Без параметров — просто признак жизни: открыть адрес в браузере и
+// убедиться, что веб-приложение опубликовано и доступно без входа.
+function doGet(e) {
+  if (e && e.parameter && e.parameter.stock) {
+    return json_({ ok: true, reserved: reservedMap_() });
+  }
   return json_({ ok: true, hint: 'Приёмник опросов SPOTTER работает' });
+}
+
+/* ---------------------------------------------------------------------
+   РЕЗЕРВ
+   --------------------------------------------------------------------- */
+function reserveSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RESERVE_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(RESERVE_SHEET);
+    sheet.getRange(1, 1, 1, RESERVE_COLUMNS.length).setValues([RESERVE_COLUMNS]);
+    sheet.getRange(1, 1, 1, RESERVE_COLUMNS.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// Сколько занято по каждому товару и размеру. Ключ — 'id|размер'.
+// Строки с непустым «Отменён» не считаем: это и есть способ вернуть
+// вещь в продажу, не разбираясь в коде.
+function reservedMap_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('reserved');
+  if (hit) return JSON.parse(hit);
+
+  var sheet = reserveSheet_();
+  var out = {};
+  if (sheet.getLastRow() > 1) {
+    var rows = sheet.getRange(2, 3, sheet.getLastRow() - 1, 5).getValues(); // ID..Отменён
+    rows.forEach(function (r) {
+      var id = String(r[0] || '').trim();
+      var size = String(r[2] || '').trim();
+      var qty = Number(r[3]) || 0;
+      var cancelled = String(r[4] || '').trim();
+      if (!id || !size || cancelled) return;
+      var key = id + '|' + size;
+      out[key] = (out[key] || 0) + qty;
+    });
+  }
+  // Минута — компромисс: витрину лишний раз не дёргаем, но «разобрали»
+  // появляется почти сразу. Перед самим заказом остаток всё равно
+  // пересчитывается заново, без кэша.
+  cache.put('reserved', JSON.stringify(out), 60);
+  return out;
+}
+
+function dropReservedCache_() {
+  CacheService.getScriptCache().remove('reserved');
+}
+
+function addReserve_(sheet, number, items) {
+  var now = new Date();
+  var rows = items.map(function (it) {
+    return [number, now, it.id || '', it.name || '', it.size || '', Number(it.qty) || 1, ''];
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, RESERVE_COLUMNS.length).setValues(rows);
+  dropReservedCache_();
 }
 
 function json_(obj) {
@@ -228,11 +298,34 @@ function writeOrder_(sheet, data) {
   var numCell = sheet.getRange(row, BASE_COLUMNS.length + 1);
   var existing = String(numCell.getValue() || '');
   if (existing) {
-    return { ok: true, order: existing, units: [], repeat: true };
+    return { ok: true, order: existing, units: [], repeat: true, reserved: reservedMap_() };
+  }
+
+  var items = data.items || [];
+
+  // Проверка тиража. Считаем заново, без кэша: между открытием страницы
+  // и нажатием «оформить» могли пройти минуты, и размер мог разобрать
+  // кто-то другой. Лимит присылает сайт — он и знает настроенный в админке
+  // тираж; скрипту его взять неоткуда.
+  dropReservedCache_();
+  var reserved = reservedMap_();
+  var oversold = [];
+  items.forEach(function (it) {
+    var limit = Number(it.limit);
+    if (!limit && limit !== 0) return; // лимит не прислали — не мешаем заказу
+    var key = (it.id || '') + '|' + (it.size || '');
+    var left = limit - (reserved[key] || 0);
+    if ((Number(it.qty) || 1) > left) {
+      oversold.push({ id: it.id, name: it.name, size: it.size, left: Math.max(left, 0) });
+    }
+  });
+  // Номер не выдаём и ничего не пишем: заказ не состоялся, и дыра
+  // в нумерации из-за него не нужна.
+  if (oversold.length) {
+    return { ok: false, oversold: oversold, reserved: reserved };
   }
 
   var number = orderNumber_();
-  var items = data.items || [];
   var units = [];
   var lines = [];
   items.forEach(function (it) {
@@ -262,6 +355,8 @@ function writeOrder_(sheet, data) {
   // никуда его не отправляет. Если почта отвалится, заказ всё равно уже
   // записан в таблицу, поэтому валить из-за неё весь запрос нельзя —
   // покупатель остался бы без номера при сохранённом заказе.
+  addReserve_(reserveSheet_(), number, items);
+
   var mailed = false;
   try {
     mailed = mailOrder_(sheet, row, number, lines, data);
@@ -269,7 +364,7 @@ function writeOrder_(sheet, data) {
     console.error('Письмо о заказе не ушло: ' + err);
   }
 
-  return { ok: true, order: number, units: units, mailed: mailed };
+  return { ok: true, order: number, units: units, mailed: mailed, reserved: reservedMap_() };
 }
 
 function mailOrder_(sheet, row, number, lines, data) {
