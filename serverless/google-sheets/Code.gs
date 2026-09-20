@@ -168,6 +168,22 @@ function takeNumbers_(key, count) {
   return out;
 }
 
+/**
+ * Сбросить нумерацию в ноль. Запускается ВРУЧНУЮ из редактора
+ * (выбрать resetCounters в списке функций → «Выполнить») — сайт её
+ * не вызывает и вызвать не может.
+ *
+ * Нужна ровно один раз: после тестовых прогонов, перед настоящим
+ * стартом продаж. Иначе первый живой покупатель получит SP-0002
+ * и вещь с номером 3.
+ *
+ * Строки в таблице она не трогает — их удалите руками.
+ */
+function resetCounters() {
+  PropertiesService.getScriptProperties().deleteAllProperties();
+  SpreadsheetApp.getActiveSpreadsheet().toast('Нумерация сброшена: следующий заказ — SP-0001');
+}
+
 function orderNumber_() {
   var n = takeNumbers_('orderSeq', 1)[0];
   return 'SP-' + ('0000' + n).slice(-4);
