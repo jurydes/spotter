@@ -995,7 +995,11 @@ function bindDynamicHandlers(){
       openDrawer();
     });
   });
+  // Кнопку внутри карточки товара пропускаем: её навешивает renderModal,
+  // передавая туда уже выбранный размер. Иначе на ней повисли бы два
+  // обработчика, и второй сбрасывал бы размер, выбранный первым.
   document.querySelectorAll('[data-open-survey]').forEach(el=>{
+    if (el.closest('#modalContent')) return;
     el.addEventListener('click', (e)=>{
       e.stopPropagation(); // не открывать модалку карточки
       openSurvey(el.dataset.openSurvey);
@@ -1589,8 +1593,16 @@ function bindModalCartBtn(){
   if (cartBtn) cartBtn.addEventListener('click', ()=>{ closeProduct(); openDrawer(); });
   // Кнопки внутри модалки навешиваются здесь: bindDynamicHandlers() проходит
   // по странице после render(), а модалку рисует renderModal() отдельно.
+  //
+  // Товар берём из modalProduct, а не из локальной p: p живёт внутри
+  // renderModal, здесь её нет, и обработчик падал с ReferenceError —
+  // кнопка опроса в карточке не работала совсем. На витрине та же кнопка
+  // работала от bindDynamicHandlers, поэтому со стороны выглядело так,
+  // будто её ломает выбор размера.
   const modalSurveyBtn = document.querySelector('#modalContent [data-open-survey]');
-  if (modalSurveyBtn) modalSurveyBtn.addEventListener('click', ()=>openSurvey(p.id, modalSize));
+  if (modalSurveyBtn && modalProduct){
+    modalSurveyBtn.addEventListener('click', ()=>openSurvey(modalProduct.id, modalSize));
+  }
 }
 bindEl('productOverlay', 'click', e=>{
   if (e.target.id === 'productOverlay') closeProduct();
