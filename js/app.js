@@ -1893,7 +1893,9 @@ function renderDrawer(){
   }).join('');
 
   foot.innerHTML = `
-    ${placedOrder ? `<div class="dup-warn">Вы уже оформили заказ <b>${escapeHtml(placedOrder.number)}</b>${placedOrder.lines && placedOrder.lines.length ? ` (${escapeHtml(placedOrder.lines.map(l=>l.name + ' ' + l.size).join(', '))})` : ''}. Убедитесь, что это не то же самое.</div>` : ''}
+    ${(()=>{ const d = duplicateInCart(); return d.length
+      ? `<div class="dup-warn">В недавнем заказе <b>${escapeHtml(placedOrder.number)}</b> уже есть ${escapeHtml(d.join(', '))}. Убедитесь, что это не повтор.</div>`
+      : ''; })()}
     <div class="total-row"><b>Итого</b><span class="mono">${formatPrice(cartTotalPrice())}</span></div>
     ${surveyResult && surveyResult.discount ? `
     <div class="total-row discount-row"><span>Скидка за опрос</span><span class="mono">−${formatPrice(surveyResult.discount)}</span></div>
@@ -2282,6 +2284,31 @@ function clearPlacedOrder(){
   try{ localStorage.removeItem(ORDER_KEY); }catch(e){}
 }
 
+/* Совпадения корзины с недавним заказом — то, ради чего предупреждение
+   вообще нужно: «забыл, что уже брал это, и заказал второй раз».
+
+   Считаем повтором только точное совпадение товара И размера. Худи L и
+   худи XL — это не дубль, а осознанная покупка двух разных вещей, и
+   ругаться на неё значит приучить не читать предупреждения вообще.
+
+   Три дня — потому что забывчивость живёт часами, а не месяцами. Человек,
+   вернувшийся через неделю за второй такой же вещью, делает это нарочно. */
+const DUP_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+function duplicateInCart(){
+  if (!placedOrder || !placedOrder.at) return [];
+  const at = new Date(placedOrder.at).getTime();
+  if (!at || Date.now() - at > DUP_WINDOW_MS) return [];
+  const ordered = placedOrder.lines || [];
+  return cart.map(item=>{
+    const p = findProduct(item.productId);
+    const name = p ? p.name : item.productId;
+    // id появился не сразу — у заказов, сохранённых раньше, сверяемся по названию
+    const same = ordered.find(l => (l.id ? l.id === item.productId : l.name === name)
+                                   && l.size === item.size);
+    return same ? `${name} ${item.size}` : null;
+  }).filter(Boolean);
+}
+
 /* =====================================================================
    CHECKOUT — валидация остатков на клиенте + переход в Telegram
    с готовым сообщением. Реальная оплата и подтверждение заказа
@@ -2398,7 +2425,7 @@ async function handleCheckout(){
     res.units.forEach(u=>{ unitsById[(u.id || '') + '|' + (u.size || '')] = u.numbers || []; });
   }
   const lines = items.map(it=>({
-    name: it.name, size: it.size, qty: it.qty,
+    id: it.id, name: it.name, size: it.size, qty: it.qty,
     numbers: unitsById[it.id + '|' + it.size] || []
   }));
 
