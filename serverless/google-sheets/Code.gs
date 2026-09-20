@@ -4,17 +4,22 @@
    Ставится как веб-приложение Google Apps Script (инструкция в README.md
    рядом). Сайт шлёт сюда POST с JSON, скрипт дописывает строку.
 
-   Строка одна на человека: сначала её создают ответы опроса, потом,
-   если человек оформил заказ, в ту же строку дописываются ФИО, телефон,
-   пункт выдачи и состав. Сходятся по id, который сайт кладёт в оба
-   сообщения. Заказ без опроса просто заведёт строку без ответов.
+   Строка одна на человека: ответы опроса и оформленный заказ сходятся
+   по id, который сайт кладёт в оба сообщения. Прийти они могут в любом
+   порядке и с любым разрывом во времени — кто пришёл первым, тот и
+   заводит строку, второй дописывает недостающее в неё же.
+
+   Отсюда и раскладка колонок: слева всё, что известно заранее (дата,
+   id, товар, поля заказа), справа — ответы, которых может стать больше
+   или меньше при смене вопросов. Так позиции колонок заказа не зависят
+   от того, сколько в опросе вопросов и дошёл ли опрос вообще.
    ===================================================================== */
 
 var SHEET_NAME = 'Ответы';
 
-// Колонки заказа идут после ответов. Вопросов в опросе восемь, но их
-// число может поменяться, поэтому заголовки строятся динамически,
-// а эти — всегда добавляются справа.
+// Левая, неизменная часть таблицы. Позиции этих колонок жёсткие:
+// заказ пишется в них, ничего не зная про вопросы.
+var BASE_COLUMNS = ['Дата', 'ID', 'Товар'];
 var ORDER_COLUMNS = [
   'Заказ оформлен',
   'ФИО',
@@ -26,15 +31,17 @@ var ORDER_COLUMNS = [
   'Скидка',
   'Комментарий'
 ];
+var FIXED_COLUMNS = BASE_COLUMNS.concat(ORDER_COLUMNS);
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  // Две вкладки, оформляющие заказ одновременно, иначе могут записать
-  // в одну и ту же строку и затереть друг друга.
-  lock.waitLock(20000);
+  // Без замка два одновременных запроса могут оба не найти строку по id
+  // и завести её дважды — ровно та гонка, из-за которой раскладка
+  // и переделывалась.
+  lock.waitLock(30000);
   try {
     var data = JSON.parse(e.postData.contents);
-    var sheet = getSheet_();
+    var sheet = ensureSheet_();
     if (data.type === 'order') {
       writeOrder_(sheet, data);
     } else {
@@ -48,8 +55,8 @@ function doPost(e) {
   }
 }
 
-// Открыть страницу скрипта в браузере — быстрый способ убедиться,
-// что веб-приложение вообще опубликовано и доступно.
+// Открыть адрес скрипта в браузере — быстрый способ убедиться,
+// что веб-приложение опубликовано и доступно без входа в аккаунт.
 function doGet() {
   return json_({ ok: true, hint: 'Приёмник опросов SPOTTER работает' });
 }
@@ -60,59 +67,89 @@ function json_(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function getSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-  }
-  return sheet;
-}
-
+/* ---------------------------------------------------------------------
+   ЛИСТ И ЗАГОЛОВКИ
+   --------------------------------------------------------------------- */
 function headers_(sheet) {
   if (sheet.getLastColumn() === 0) return [];
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 }
 
-// Заголовки создаются по первому пришедшему опросу: тексты вопросов
-// берутся прямо из него. Поменяются вопросы на сайте — заведите новую
-// таблицу, иначе старые и новые ответы окажутся в одних колонках.
-function ensureHeaders_(sheet, questions) {
-  if (sheet.getLastRow() > 0) return headers_(sheet);
-  var row = ['Дата', 'ID', 'Товар'].concat(questions).concat(ORDER_COLUMNS);
-  sheet.getRange(1, 1, 1, row.length).setValues([row]);
-  sheet.getRange(1, 1, 1, row.length).setFontWeight('bold');
+function writeFixedHeaders_(sheet) {
+  sheet.getRange(1, 1, 1, FIXED_COLUMNS.length).setValues([FIXED_COLUMNS]);
+  sheet.getRange(1, 1, 1, FIXED_COLUMNS.length).setFontWeight('bold');
   sheet.setFrozenRows(1);
-  return row;
 }
 
-function findRowById_(sheet, id) {
-  if (!id || sheet.getLastRow() < 2) return 0;
-  var ids = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === String(id)) return i + 2;
+function ensureSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
   }
-  return 0;
+  if (sheet.getLastRow() === 0) {
+    writeFixedHeaders_(sheet);
+    return sheet;
+  }
+  // Лист от прошлой версии скрипта с другой раскладкой колонок: дописывать
+  // в него нельзя — данные лягут не в те столбцы. Уводим старое в сторону
+  // и начинаем чистый лист, чтобы это не требовало ручной уборки.
+  var head = headers_(sheet);
+  for (var i = 0; i < FIXED_COLUMNS.length; i++) {
+    if (head[i] !== FIXED_COLUMNS[i]) {
+      var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM HH:mm');
+      sheet.setName(SHEET_NAME + ' (старое ' + stamp + ')');
+      sheet = ss.insertSheet(SHEET_NAME);
+      writeFixedHeaders_(sheet);
+      break;
+    }
+  }
+  return sheet;
+}
+
+// Колонка вопроса по его тексту. Нет такой — заводим новую справа.
+// Привязка по тексту, а не по номеру: так добавленный в середину опроса
+// вопрос не сдвинет все ответы на колонку вбок.
+function questionColumn_(sheet, question) {
+  var head = headers_(sheet);
+  for (var i = FIXED_COLUMNS.length; i < head.length; i++) {
+    if (head[i] === question) return i + 1;
+  }
+  var col = Math.max(head.length, FIXED_COLUMNS.length) + 1;
+  sheet.getRange(1, col).setValue(question).setFontWeight('bold');
+  return col;
+}
+
+/* ---------------------------------------------------------------------
+   СТРОКИ
+   --------------------------------------------------------------------- */
+// Строка этого человека: найденная по id или новая. Именно здесь
+// сходятся опрос и заказ, пришедшие порознь.
+function rowFor_(sheet, id) {
+  if (sheet.getLastRow() > 1 && id) {
+    var ids = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === String(id)) return i + 2;
+    }
+  }
+  sheet.appendRow([new Date(), id || '']);
+  return sheet.getLastRow();
 }
 
 function writeSurvey_(sheet, data) {
-  var answers = data.answers || [];
-  var questions = answers.map(function (a) { return a.q; });
-  ensureHeaders_(sheet, questions);
-
-  var row = [new Date(), data.id || '', data.product || ''];
-  answers.forEach(function (a) { row.push(a.a || ''); });
-  sheet.appendRow(row);
+  var row = rowFor_(sheet, data.id);
+  if (data.product) sheet.getRange(row, 3).setValue(data.product);
+  (data.answers || []).forEach(function (a) {
+    if (!a || !a.q) return;
+    sheet.getRange(row, questionColumn_(sheet, a.q)).setValue(a.a || '');
+  });
 }
 
 function writeOrder_(sheet, data) {
-  var head = headers_(sheet);
-  if (!head.length) {
-    // Заказ пришёл раньше любого опроса — заводим заголовки без вопросов
-    head = ensureHeaders_(sheet, []);
-  }
-  var startCol = head.length - ORDER_COLUMNS.length + 1;
-  var values = [
+  var row = rowFor_(sheet, data.id);
+  // Колонки заказа идут сразу за базовыми и всегда на одном месте
+  var start = BASE_COLUMNS.length + 1;
+  sheet.getRange(row, start, 1, ORDER_COLUMNS.length).setValues([[
     new Date(),
     data.name || '',
     data.phone || '',
@@ -122,13 +159,5 @@ function writeOrder_(sheet, data) {
     data.total || '',
     data.discount || '',
     data.comment || ''
-  ];
-
-  var row = findRowById_(sheet, data.id);
-  if (!row) {
-    // Заказ без опроса: заводим строку, колонки ответов остаются пустыми
-    sheet.appendRow([new Date(), data.id || '', '']);
-    row = sheet.getLastRow();
-  }
-  sheet.getRange(row, startCol, 1, values.length).setValues([values]);
+  ]]);
 }

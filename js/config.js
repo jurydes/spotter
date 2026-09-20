@@ -16,7 +16,7 @@ const CONFIG = {
   // Пустая строка — ответы никуда не отправляются и живут только в заказе
   // в Telegram. Как получить адрес — serverless/google-sheets/README.md.
   // Выглядит так: 'https://script.google.com/macros/s/AKfy..../exec'
-  surveySheetUrl: '',
+  surveySheetUrl: 'https://script.google.com/macros/s/AKfycbwCNeyVaUMrbzu_wfAzUkaIoqzx_wmyHTCix1HpuB1-XsVAlsRiD2Smabmwk10ElG8yMw/exec',
 
   // Адрес функции, которая отдаёт пункты выдачи СДЭК.
   // Пустая строка — при доставке спрашиваем адрес обычным текстовым полем,
