@@ -316,12 +316,44 @@ function productImages(p){
 }
 // Фото товара: реальное фото, если оно есть, иначе — плейсхолдер.
 // index — какое из фото показать (для галереи в карточке товара).
+/* Решает, обрезать картинку по рамке или показать целиком.
+
+   Мерить пропорции, а не полагаться на «сетка всегда последняя»: порядок
+   фото продавец меняет перетаскиванием в админке, и любое правило по
+   позиции однажды разъедется. А вот форма у таблицы с размерами своя —
+   заметно уже и выше кадра со съёмкой, и по ней её видно надёжно.
+
+   Порог 15%: обычная портретная съёмка расходится с рамкой 4:5 примерно
+   на десятую, размерная сетка — вдвое сильнее. Мелкая разница пусть
+   по-прежнему подрезается, иначе поля появятся у нормальных фото. */
+function autoFitPhoto(root){
+  const box = root && root.querySelector('.ph-photo');
+  const img = box && box.querySelector('.ph-img');
+  if (!img) return;
+  const apply = ()=>{
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    box.style.aspectRatio = ''; // сначала вернуть рамку к обычной, иначе сравним с прошлой
+    const boxRatio = box.clientWidth / box.clientHeight;
+    if (!boxRatio) return;
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    const odd = Math.abs(imgRatio - boxRatio) / boxRatio > 0.15;
+    img.classList.toggle('fit-contain', odd);
+    // Одного contain мало: в рамке 4:5 сетка ужималась до 39% оригинала,
+    // и цифры в таблице читались с трудом. Поэтому под такую картинку
+    // рамка подстраивается сама — тогда сетка занимает всю ширину колонки.
+    // Ограничение 1:2 — чтобы случайная очень длинная картинка не растянула
+    // окно на два экрана.
+    box.style.aspectRatio = odd ? `${img.naturalWidth}/${Math.min(img.naturalHeight, img.naturalWidth * 2)}` : '';
+  };
+  if (img.complete) apply();
+  else img.addEventListener('load', apply, { once: true });
+}
 function productPhoto(p, index){
   const images = productImages(p);
   const src = images[index || 0] || images[0];
   if (src){
     return `<div class="ph-photo viewfinder">
-      <img src="${src}" alt="${escapeHtml(p.name)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">
+      <img class="ph-img" src="${src}" alt="${escapeHtml(p.name)}" loading="lazy" decoding="async">
       <span class="vf-corner vf-tl"></span><span class="vf-corner vf-tr"></span>
       <span class="vf-corner vf-bl"></span><span class="vf-corner vf-br"></span>
     </div>`;
@@ -1657,7 +1689,12 @@ function renderModal(){
   `;
   document.getElementById('modalCloseBtn').addEventListener('click', ()=>closeProduct());
   const zoomBtn = document.getElementById('zoomOpenBtn');
-  if (zoomBtn) zoomBtn.addEventListener('click', ()=>openLightbox(images, modalPhoto, p.name));
+  if (zoomBtn){
+    zoomBtn.addEventListener('click', ()=>openLightbox(images, modalPhoto, p.name));
+    // Каждое переключение фото — новая картинка со своими пропорциями,
+    // поэтому решение принимается заново, а не один раз при открытии.
+    autoFitPhoto(zoomBtn);
+  }
   document.querySelectorAll('.size-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       modalSize = btn.dataset.size;

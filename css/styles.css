@@ -139,6 +139,12 @@
   /* Плоский прямоугольник в реальном размере блока — без градиента, зерна и
      подписи, чтобы пропорции карточек были видны как есть, до реальных фото. */
   .ph-photo{position:relative;overflow:hidden;background:#000;}
+  /* По умолчанию фото заполняет рамку и подрезается по краям — для съёмки
+     товара это правильно. Но не для всего: размерная сетка узкая и высокая,
+     и обрезка съедала у неё заголовок и нижние строки таблицы. Такие
+     картинки помечаются fit-contain и показываются целиком — см. autoFitPhoto. */
+  .ph-img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ph-img.fit-contain{object-fit:contain;background:#000;}
   /* Уголки видоискателя раньше были видны только на ховере — теперь они всегда
      присутствуют приглушённым тоном и загораются синим при наведении. */
   .vf-corner{border-color:rgba(236,232,224,0.22);transition:border-color .2s;}
@@ -483,7 +489,9 @@
     width:56px;height:70px;padding:0;border:1px solid var(--line);background:none;
     overflow:hidden;flex-shrink:0;transition:border-color .15s;
   }
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  /* Миниатюры показываем целиком: они нужны, чтобы отличить одну картинку
+     от другой, а обрезанная сетка от обрезанного фото неотличима. */
+  .thumb img{width:100%;height:100%;object-fit:contain;display:block;}
   .thumb:hover{border-color:var(--steel);}
   .thumb.active{border-color:var(--accent);}
 
