@@ -798,7 +798,7 @@ function buyButtonHtml(product){
   if (outOfStock){
     // Остатка нет, но заказать всё равно можно — карточка ведёт в модалку,
     // где для каждого размера открыт путь оформить предзаказ.
-    return `<button class="btn-outline buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
+    return `<button class="btn-outline buy-btn" data-choose-size="${product.id}">Предзаказ ${formatPrice(product.price)}</button>`;
   }
   // Товар уже в корзине — вместо повторного добавления даём переход в корзину.
   if (qtyInCartForProduct(product.id) > 0){
