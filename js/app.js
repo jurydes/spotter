@@ -1111,6 +1111,7 @@ let surveyStep = 0;
 let surveyAnswers = [];
 let surveySize = null;       // размер, выбранный на последнем шаге опроса
 let surveyQty = 1;
+let surveyMsg = '';          // подтверждение добавления на последнем шаге
 // Пройденный опрос, который ждёт отправки вместе с заказом. Лежит в
 // localStorage рядом с корзиной: ответы на восемь вопросов жалко терять
 // из-за случайного обновления страницы между опросом и оформлением.
@@ -1181,6 +1182,7 @@ function openSurvey(productId, presetSize){
   // человек не выбирает его дважды.
   surveySize = presetSize || null;
   surveyQty = 1;
+  surveyMsg = '';
   const overlay = surveyOverlayEl();
   renderSurvey();
   overlay.classList.add('open');
@@ -1215,18 +1217,31 @@ function surveyText(){
   });
   return lines.join('\n\n');
 }
-// Опрос закончился заказом: ответы запоминаем, товар кладём в корзину и
-// отдаём человека в обычное оформление — там уже есть поля контакта и
-// доставки, дублировать их внутри опроса незачем. В Telegram потом уйдёт
-// одно сообщение: заказ, скидка и ответы вместе.
-function finishSurveyWithOrder(){
+// Добавление из опроса работает как в обычной карточке товара: окно
+// остаётся открытым, счётчик сбрасывается, и можно тут же добавить другой
+// размер. Иначе заказать S, M и L по одному было невозможно — окно
+// закрывалось после первого же добавления.
+function addSurveyItem(){
   if (!surveyProduct || !surveySize) return;
+  // Ответы сохраняем при первом же добавлении: скидка должна быть засчитана,
+  // даже если человек потом просто закроет окно и вернётся к корзине позже.
   saveSurveyResult();
-  addToCart(surveyProduct.id, surveySize, surveyQty);
+  const asked = surveyQty;
+  const ok = addToCart(surveyProduct.id, surveySize, asked);
+  surveyMsg = ok
+    ? `Добавлено: размер ${surveySize}, ${asked} шт.`
+    : `Добавлено меньше — не хватило остатка размера ${surveySize}.`;
+  surveyQty = 1;
+  renderSurvey();
+  render(); // карточка в сетке переключается на «Посмотреть корзину»
+}
+// Заказ собран — отдаём человека в обычное оформление, там уже есть поля
+// контакта и доставки, дублировать их внутри опроса незачем. В Telegram
+// потом уйдёт одно сообщение: заказ, скидка и ответы вместе.
+function goToCartFromSurvey(){
   closeSurvey();
   if (modalProduct) closeProduct();
   openDrawer();
-  render();
 }
 function renderSurvey(){
   const el = document.getElementById('surveyModalContent');
@@ -1244,9 +1259,10 @@ function renderSurvey(){
       const left = getStockFor(p.id, s) - qtyInCart(p.id, s);
       return `<button class="size-btn ${s===surveySize?'active':''} ${left<=0?'sold-out':''}" ${left<=0?'disabled':''} data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
     }).join('') : '';
-    const surveyQtyCap = (p && surveySize)
-      ? Math.max(getStockFor(p.id, surveySize) - qtyInCart(p.id, surveySize), 1)
-      : 1;
+    const leftForSize = (p && surveySize) ? getStockFor(p.id, surveySize) - qtyInCart(p.id, surveySize) : 0;
+    const surveyQtyCap = Math.max(leftForSize, 1);
+    const canAdd = !!(p && surveySize && leftForSize > 0);
+    const inCartTotal = cartTotalQty();
     const answersUrl = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(surveyText())}`;
 
     el.innerHTML = `
@@ -1267,11 +1283,14 @@ function renderSurvey(){
             <button class="qty-btn" id="surveyQtyMinus" ${surveyQty<=1?'disabled':''}>−</button>
             <span class="qty-val">${surveyQty}</span>
             <button class="qty-btn" id="surveyQtyPlus" ${surveyQty < surveyQtyCap ? '' : 'disabled'}>+</button>
+            <span class="stock-note">${surveySize ? `осталось: ${Math.max(leftForSize,0)}` : 'выберите размер'}</span>
           </div>
         </div>` : ''}
       </div>
       <div class="survey-nav survey-nav-final">
-        ${p ? `<button class="btn btn-full" id="surveyOrderBtn" ${surveySize ? '' : 'disabled style="opacity:.4;cursor:not-allowed;"'}>${surveySize ? 'В корзину со скидкой' : 'Выберите размер'}</button>` : ''}
+        ${p ? `<button class="btn btn-full" id="surveyAddBtn" ${canAdd ? '' : 'disabled style="opacity:.4;cursor:not-allowed;"'}>${!surveySize ? 'Выберите размер' : (leftForSize > 0 ? 'Добавить в корзину' : 'Этого размера нет')}</button>` : ''}
+        ${surveyMsg ? `<div class="add-msg">${escapeHtml(surveyMsg)}</div>` : ''}
+        ${inCartTotal > 0 ? `<button class="btn-outline btn-full" id="surveyCartBtn">Перейти в корзину · ${inCartTotal} шт.</button>` : ''}
         <div class="survey-nav-row">
           <button class="link-btn" id="surveyBackBtn">Назад к вопросам</button>
           <a class="link-btn" id="surveySendBtn" href="${escapeHtml(answersUrl)}" target="_blank" rel="noopener">Просто отправить ответы</a>
@@ -1281,14 +1300,21 @@ function renderSurvey(){
     document.getElementById('surveyCloseBtn').addEventListener('click', closeSurvey);
     document.getElementById('surveyBackBtn').addEventListener('click', ()=>{ surveyStep = total-1; renderSurvey(); });
     el.querySelectorAll('[data-survey-size]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ surveySize = btn.dataset.surveySize; renderSurvey(); });
+      btn.addEventListener('click', ()=>{
+        surveySize = btn.dataset.surveySize;
+        surveyQty = 1;
+        surveyMsg = ''; // подтверждение относилось к прошлому размеру
+        renderSurvey();
+      });
     });
     const minus = document.getElementById('surveyQtyMinus');
     if (minus) minus.addEventListener('click', ()=>{ surveyQty = Math.max(1, surveyQty-1); renderSurvey(); });
     const plus = document.getElementById('surveyQtyPlus');
     if (plus) plus.addEventListener('click', ()=>{ surveyQty = Math.min(surveyQtyCap, surveyQty+1); renderSurvey(); });
-    const orderBtn = document.getElementById('surveyOrderBtn');
-    if (orderBtn) orderBtn.addEventListener('click', finishSurveyWithOrder);
+    const addBtn = document.getElementById('surveyAddBtn');
+    if (addBtn) addBtn.addEventListener('click', ()=>{ if (canAdd) addSurveyItem(); });
+    const cartBtn = document.getElementById('surveyCartBtn');
+    if (cartBtn) cartBtn.addEventListener('click', goToCartFromSurvey);
     return;
   }
 
