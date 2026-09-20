@@ -17,6 +17,12 @@
 
 var SHEET_NAME = 'Ответы';
 
+// Куда уходит письмо о новом заказе. Адрес держим здесь, а не в конфиге
+// сайта: js/config.js открыт любому посетителю, и почта из него уехала бы
+// в спам-базы. Пустая строка — письма не шлются, заказ только пишется
+// в таблицу. Несколько адресов — через запятую.
+var ORDER_EMAIL = 'altunin.04@gmail.com';
+
 // Левая, неизменная часть таблицы. Позиции этих колонок жёсткие:
 // заказ пишется в них, ничего не зная про вопросы.
 var BASE_COLUMNS = ['Дата', 'ID', 'Товар'];
@@ -25,6 +31,7 @@ var ORDER_COLUMNS = [
   'Заказ оформлен',
   'ФИО',
   'Телефон',
+  'Telegram',
   'Получение',
   'Куда',
   'Состав заказа',
@@ -219,6 +226,7 @@ function writeOrder_(sheet, data) {
     new Date(),
     data.name || '',
     data.phone || '',
+    data.telegram || '',
     data.delivery || '',
     data.destination || '',
     lines.join('; '),
@@ -227,5 +235,57 @@ function writeOrder_(sheet, data) {
     data.comment || ''
   ]]);
 
-  return { ok: true, order: number, units: units };
+  // Письмо — единственное, что доносит заказ до человека: сайт больше
+  // никуда его не отправляет. Если почта отвалится, заказ всё равно уже
+  // записан в таблицу, поэтому валить из-за неё весь запрос нельзя —
+  // покупатель остался бы без номера при сохранённом заказе.
+  var mailed = false;
+  try {
+    mailed = mailOrder_(sheet, row, number, lines, data);
+  } catch (err) {
+    console.error('Письмо о заказе не ушло: ' + err);
+  }
+
+  return { ok: true, order: number, units: units, mailed: mailed };
+}
+
+function mailOrder_(sheet, row, number, lines, data) {
+  if (!ORDER_EMAIL) return false;
+
+  var body = [
+    'Новый заказ с сайта SPOTTER',
+    '',
+    'Номер: ' + number,
+    '',
+    'ЧТО ЗАКАЗАНО',
+    lines.join('\n'),
+    '',
+    'Сумма: ' + (data.total || 0) + ' руб.'
+  ];
+  if (data.discount) {
+    body.push('Скидка за опрос: -' + data.discount + ' руб.');
+    body.push('К оплате: ' + Math.max((data.total || 0) - data.discount, 0) + ' руб.');
+  }
+  body.push('');
+  body.push('ПОКУПАТЕЛЬ');
+  body.push('ФИО: ' + (data.name || ''));
+  body.push('Телефон: ' + (data.phone || ''));
+  body.push('Telegram: ' + (data.telegram || ''));
+  body.push('Получение: ' + (data.delivery || ''));
+  if (data.destination) body.push('Куда: ' + data.destination);
+  if (data.comment) body.push('Комментарий: ' + data.comment);
+
+  // Ответы опроса лежат в этой же строке — тащить их в письмо незачем,
+  // проще дать ссылку прямо на строку.
+  body.push('');
+  body.push('Строка в таблице (там же ответы на опрос):');
+  body.push(SpreadsheetApp.getActiveSpreadsheet().getUrl() +
+            '#gid=' + sheet.getSheetId() + '&range=A' + row);
+
+  MailApp.sendEmail({
+    to: ORDER_EMAIL,
+    subject: 'Заказ ' + number + ' — ' + (data.name || 'без имени'),
+    body: body.join('\n')
+  });
+  return true;
 }

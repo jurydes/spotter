@@ -19,7 +19,7 @@ const ORDER_KEY = 'spotter-order-v1';
 // Поля оформления держим состоянием, а не читаем из DOM по факту: подвал
 // корзины перерисовывается при каждом изменении количества, и набранные
 // имя с телефоном иначе стирались бы на ровном месте.
-let checkoutForm = { name:'', phone:'', delivery:'Самовывоз', city:'', comment:'', point:null };
+let checkoutForm = { name:'', phone:'', telegram:'', delivery:'Самовывоз', city:'', comment:'', point:null };
 let cdekPoints = [];         // найденные ПВЗ по последнему запросу
 let cdekState = '';          // '' | 'loading' | 'error' | 'empty'
 let cdekGeo = null;          // координаты покупателя для сортировки «ближайшие»
@@ -1298,16 +1298,6 @@ function surveyAnswerText(i){
     .map(opt => (opt === SURVEY_OTHER && other) ? `другое: ${other}` : opt)
     .join(', ');
 }
-function surveyText(){
-  const lines = [`Ответы на опрос о мерче${surveyProduct ? ' («' + surveyProduct.name + '»)' : ''}:`];
-  // Условие скидки — в самом сообщении, чтобы тому, кто разбирает ответы,
-  // не приходилось помнить, что и кому обещано.
-  if (surveyDiscount()) lines.push(`Скидка за опрос: ${formatPrice(surveyDiscount())}.`);
-  SURVEY_QUESTIONS.forEach((def,i)=>{
-    lines.push(`${i+1}. ${def.q}\n${surveyAnswerText(i) || '— пропущено'}`);
-  });
-  return lines.join('\n\n');
-}
 // Добавление из опроса работает как в обычной карточке товара: окно
 // остаётся открытым, счётчик сбрасывается, и можно тут же добавить другой
 // размер. Иначе заказать S, M и L по одному было невозможно — окно
@@ -1354,7 +1344,6 @@ function renderSurvey(){
     const surveyQtyCap = Math.max(leftForSize, 1);
     const canAdd = !!(p && surveySize && leftForSize > 0);
     const inCartTotal = cartTotalQty();
-    const answersUrl = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(surveyText())}`;
 
     el.innerHTML = `
       <button class="modal-close" id="surveyCloseBtn" aria-label="Закрыть">×</button>
@@ -1384,7 +1373,7 @@ function renderSurvey(){
         ${inCartTotal > 0 ? `<button class="btn-outline btn-full" id="surveyCartBtn">Перейти в корзину · ${inCartTotal} шт.</button>` : ''}
         <div class="survey-nav-row">
           <button class="link-btn" id="surveyBackBtn">Назад к вопросам</button>
-          <a class="link-btn" id="surveySendBtn" href="${escapeHtml(answersUrl)}" target="_blank" rel="noopener">Просто отправить ответы</a>
+          <button class="link-btn" id="surveyDoneBtn">Ответы отправлены, закрыть</button>
         </div>
       </div>
     `;
@@ -1406,6 +1395,11 @@ function renderSurvey(){
     if (addBtn) addBtn.addEventListener('click', ()=>{ if (canAdd) addSurveyItem(); });
     const cartBtn = document.getElementById('surveyCartBtn');
     if (cartBtn) cartBtn.addEventListener('click', goToCartFromSurvey);
+    // Раньше тут была ссылка «просто отправить ответы» в телеграм. Теперь
+    // ответы уезжают сами, как только человек дошёл до конца, — ссылка
+    // ничего не добавляла и только подсовывала t.me, который без VPN
+    // у части людей отвечает ошибкой.
+    bindEl('surveyDoneBtn', 'click', closeSurvey);
     return;
   }
 
@@ -1833,20 +1827,34 @@ function renderDrawer(){
         </span>
       </div>`).join('');
 
-    body.innerHTML = `
+    const shop = '@' + CONFIG.telegramUsername;
+    // Заказ дошёл — человеку больше ничего делать не надо, и говорить ему
+    // про Telegram-ссылки незачем: у части людей t.me без VPN отвечает
+    // ошибкой, и именно это раньше ломало оформление.
+    body.innerHTML = placedOrder.delivered ? `
       <div class="order-done">
         <div class="order-no mono">Заказ ${escapeHtml(placedOrder.number)}</div>
-        <h3>Заказ оформлен</h3>
+        <h3>Спасибо за заказ</h3>
         <div class="ordered-list">${items}</div>
-        <p class="order-hint"><b>Заказ ещё не у нас.</b> Нажмите кнопку ниже — Telegram откроется с готовым сообщением, и его нужно <b>отправить вручную</b>. Если Telegram не открылся, скопируйте текст и пришлите нам любым способом.</p>
+        <p class="order-hint">Заказ у нас. <b>С вами свяжутся в Telegram</b> с аккаунта <b>${escapeHtml(shop)}</b> — там подтвердим наличие и расскажем про оплату.</p>
+        <p class="order-hint">Запишите номер заказа: <b>${escapeHtml(placedOrder.number)}</b>.</p>
+      </div>` : `
+      <div class="order-done">
+        <div class="order-no mono">Заказ ${escapeHtml(placedOrder.number)}</div>
+        <h3>Заказ собран, но не отправлен</h3>
+        <div class="ordered-list">${items}</div>
+        <p class="order-hint"><b>Отправить его автоматически не получилось</b> — похоже, нет связи. Пришлите заказ нам сами: скопируйте текст ниже и отправьте в Telegram на ${escapeHtml(shop)}.</p>
         <pre class="order-text" id="orderText">${escapeHtml(placedOrder.text)}</pre>
       </div>`;
-    foot.innerHTML = `
-      <a class="btn btn-full" id="tgBtn" href="${escapeHtml(placedOrder.url)}" target="_blank" rel="noopener">Отправить заказ в Telegram</a>
-      <button class="btn-outline btn-full" id="copyBtn">Скопировать заказ</button>
+    foot.innerHTML = placedOrder.delivered ? `
+      <a class="btn-outline btn-full" href="https://t.me/${escapeHtml(CONFIG.telegramUsername)}" target="_blank" rel="noopener">Написать нам в Telegram</a>
+      <button class="link-btn" id="newOrderBtn">Оформить ещё один заказ</button>` : `
+      <button class="btn btn-full" id="copyBtn">Скопировать заказ</button>
+      <a class="btn-outline btn-full" href="${escapeHtml(placedOrder.url)}" target="_blank" rel="noopener">Открыть Telegram</a>
       <div class="add-msg" id="copyMsg"></div>
       <button class="link-btn" id="newOrderBtn">Оформить ещё один заказ</button>`;
-    document.getElementById('copyBtn').addEventListener('click', ()=>copyOrder(placedOrder.text));
+    const copyBtn = document.getElementById('copyBtn');
+    if (copyBtn) copyBtn.addEventListener('click', ()=>copyOrder(placedOrder.text));
     // Единственный путь к новому заказу — осознанное нажатие. Именно это
     // и защищает от «кажется, не прошло, оформлю ещё разок».
     document.getElementById('newOrderBtn').addEventListener('click', ()=>{
@@ -1906,6 +1914,11 @@ function renderDrawer(){
       <span class="field-label">Телефон</span>
       <input type="tel" id="phoneField" autocomplete="tel" inputmode="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(checkoutForm.phone)}">
     </div>
+    <div>
+      <span class="field-label">Ник в Telegram</span>
+      <input type="text" id="telegramField" placeholder="@username" value="${escapeHtml(checkoutForm.telegram)}">
+      <p class="field-note">По нему свяжемся по заказу. Нет ника — напишите номер телефона.</p>
+    </div>
     <div id="deliveryBlock"></div>
     <div>
       <span class="field-label">Комментарий к заказу (необязательно)</span>
@@ -1935,6 +1948,7 @@ function renderDrawer(){
   };
   bindField('nameField', 'name');
   bindField('phoneField', 'phone');
+  bindField('telegramField', 'telegram');
   bindField('commentField', 'comment');
   foot.querySelectorAll('input[name=delivery]').forEach(r=>{
     r.addEventListener('change', ()=>{
@@ -2058,6 +2072,31 @@ function formatPhone(raw){
   if (d.length === 10) return `+7 ${d.slice(0,3)} ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8)}`;
   return '+' + d;
 }
+// Контакт в Telegram — теперь основной канал связи: заказ уходит нам на
+// почту сам, а отвечаем мы покупателю в телеграме. Принимаем и ник в любом
+// написании (@ник, t.me/ник, просто ник), и номер телефона — у части людей
+// ника просто нет, отказывать им в заказе было бы глупо.
+function normalizeTelegram(raw){
+  let v = String(raw || '').trim();
+  v = v.replace(/^https?:\/\//i, '').replace(/^t\.me\//i, '').replace(/^telegram\.me\//i, '');
+  v = v.replace(/^@+/, '').trim();
+  return v;
+}
+function telegramError(raw){
+  const v = normalizeTelegram(raw);
+  if (!v) return 'Укажите ник в Telegram — по нему мы свяжемся с вами.';
+  if (/^\+?\d[\d\s()-]{8,}$/.test(v)) return ''; // дали телефон вместо ника
+  // Ограничения самого телеграма: 5–32 символа, буквы, цифры и подчёркивание
+  if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(v)){
+    return 'Похоже на опечатку. Ник выглядит так: @username (латиница, от 5 символов).';
+  }
+  return '';
+}
+function telegramDisplay(raw){
+  const v = normalizeTelegram(raw);
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(v) ? '@' + v : v;
+}
+
 function nameError(raw){
   const parts = String(raw || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return 'Укажите фамилию и имя.';
@@ -2269,6 +2308,9 @@ async function handleCheckout(){
   if (nameErr) return fail(nameErr, 'nameField');
   const phoneErr = phoneError(phone);
   if (phoneErr) return fail(phoneErr, 'phoneField');
+  const tgErr = telegramError(checkoutForm.telegram);
+  if (tgErr) return fail(tgErr, 'telegramField');
+  const telegram = telegramDisplay(checkoutForm.telegram);
 
   let destination = '';
   if (delivery === 'Доставка'){
@@ -2333,6 +2375,7 @@ async function handleCheckout(){
     ts: new Date().toISOString(),
     name,
     phone: formatPhone(phone),
+    telegram,
     delivery,
     destination,
     comment,
@@ -2341,10 +2384,15 @@ async function handleCheckout(){
     discount
   });
 
+  // Дошёл ли заказ до нас. От этого зависит, что мы скажем покупателю:
+  // обещать «с вами свяжутся», когда заказ никуда не уехал, нельзя —
+  // человек будет ждать звонка, которого не будет.
+  const delivered = !!(res && res.order);
+
   // Таблица не ответила (не настроена, нет сети) — заказ всё равно должен
   // оформиться: номер тогда местный, по дате и случайному хвосту. Он так же
   // годится, чтобы найти заказ в переписке, просто не сквозной.
-  const number = (res && res.order) ? res.order : localOrderNumber();
+  const number = delivered ? res.order : localOrderNumber();
   const unitsById = {};
   if (res && Array.isArray(res.units)){
     res.units.forEach(u=>{ unitsById[(u.id || '') + '|' + (u.size || '')] = u.numbers || []; });
@@ -2369,14 +2417,17 @@ async function handleCheckout(){
   if (destination) msg.push(`Куда: ${destination}`);
   msg.push(`ФИО: ${name}`);
   msg.push(`Телефон: ${formatPhone(phone)}`);
+  msg.push(`Telegram: ${telegram}`);
   if (comment) msg.push(`Комментарий: ${comment}`);
   // Ответы опроса едут тем же сообщением, что и заказ: иначе продавцу
   // пришлось бы сводить два разных сообщения от одного человека.
   const text = msg.join('\n') + (surveyResult ? '\n\n' + surveyResultText() : '');
 
   placedOrder = {
-    number, text, lines, total, discount,
+    number, text, lines, total, discount, delivered,
     at: new Date().toISOString(),
+    // Ссылка нужна только запасному сценарию — когда заказ до нас не дошёл
+    // и человеку приходится прислать его руками.
     url: `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}`
   };
   savePlacedOrder();
