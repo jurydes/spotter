@@ -408,9 +408,6 @@
   .stock-ok{color:var(--steel);}
   .stock-low{color:var(--warn);}
   .stock-out{color:var(--paper-dim);}
-  .delivery-note{font-size:12px;color:var(--paper-dim);letter-spacing:0.02em;}
-  .merch-card .delivery-note{margin-top:4px;}
-  .preorder-flag{color:var(--accent-light);text-transform:uppercase;letter-spacing:0.03em;}
   .survey-btn{width:100%;text-align:center;margin-top:8px;padding:11px 6px;font-size:12px;letter-spacing:0.02em;border-color:var(--accent-light);color:var(--accent-light);}
   .survey-btn:hover{background:var(--accent-light);color:var(--ink);}
   /* Цена и плашка скидки рядом. Второй цены в ценнике нет намеренно:
@@ -612,9 +609,6 @@
   }
 
   /* сообщить о поступлении */
-  .restock{border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:10px;}
-  .restock-title{font-size:13px;color:var(--warn);letter-spacing:0.04em;text-transform:uppercase;}
-  .restock-note{font-size:14px;color:var(--paper-dim);margin:0;font-family:var(--f-body);}
 
   /* экран сформированного заказа */
   .order-done{padding:18px 0;}

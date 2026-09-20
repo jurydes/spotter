@@ -332,9 +332,6 @@ function getStockFor(productId, size){
    сессии, а не ронять страницу.
    ===================================================================== */
 const CART_KEY = 'spotter-cart-v1';
-// Предзаказ размера, которого нет в остатке: остатка для проверки нет,
-// поэтому просто ограничиваем разумным числом, а не нулём.
-const PREORDER_MAX_QTY = 20;
 function loadCart(){
   try{
     const raw = localStorage.getItem(CART_KEY);
@@ -373,21 +370,6 @@ function addToCart(productId, size, qty){
   renderCartCount();
   return add === qty;
 }
-// Предзаказ: размера нет в остатке, но покупатель готов подождать.
-// В отличие от addToCart ничем не ограничен, кроме PREORDER_MAX_QTY —
-// сверяться тут не с чем, товара физически ещё нет.
-function addPreorder(productId, size, qty){
-  const add = Math.max(1, Math.min(qty, PREORDER_MAX_QTY));
-  const existing = cart.find(c => c.productId === productId && c.size === size);
-  if (existing){
-    existing.qty = Math.min(existing.qty + add, PREORDER_MAX_QTY);
-    existing.preorder = true;
-  } else {
-    cart.push({ productId, size, qty: add, preorder: true });
-  }
-  saveCart();
-  renderCartCount();
-}
 function removeFromCart(productId, size){
   cart = cart.filter(c => !(c.productId === productId && c.size === size));
   saveCart();
@@ -399,7 +381,7 @@ function setCartQty(productId, size, qty){
   const item = cart.find(c => c.productId === productId && c.size === size);
   if (!item) return;
   if (qty <= 0){ removeFromCart(productId, size); return; }
-  const cap = item.preorder ? PREORDER_MAX_QTY : getStockFor(productId, size);
+  const cap = getStockFor(productId, size);
   item.qty = Math.min(qty, cap);
   saveCart();
   renderCartCount();
@@ -794,12 +776,6 @@ function qtyInCartForProduct(productId){
   return cart.filter(c => c.productId === productId).reduce((a,c) => a + c.qty, 0);
 }
 function buyButtonHtml(product){
-  const outOfStock = stockLabel(product).cls === 'stock-out';
-  if (outOfStock){
-    // Остатка нет, но заказать всё равно можно — карточка ведёт в модалку,
-    // где для каждого размера открыт путь оформить предзаказ.
-    return `<button class="btn-outline buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
-  }
   // Товар уже в корзине — вместо повторного добавления даём переход в корзину.
   if (qtyInCartForProduct(product.id) > 0){
     return `<button class="btn-outline buy-btn" data-open-cart="${product.id}">Посмотреть корзину</button>`;
@@ -851,9 +827,7 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         ${priceBlockHtml(p)}
-        ${st.cls === 'stock-out' ? '' : `
-        <div class="stock-flag ${st.cls}">${st.text}</div>
-        <div class="delivery-note mono">Доставка от 7 до 14 дней</div>`}
+        ${st.cls === 'stock-out' ? '' : `<div class="stock-flag ${st.cls}">${st.text}</div>`}
         ${buyButtonHtml(p)}
         ${surveyButtonHtml(p, 'survey-btn')}
       </div>
@@ -1245,9 +1219,7 @@ function surveyText(){
 function finishSurveyWithOrder(){
   if (!surveyProduct || !surveySize) return;
   saveSurveyResult();
-  const left = getStockFor(surveyProduct.id, surveySize) - qtyInCart(surveyProduct.id, surveySize);
-  if (left >= surveyQty) addToCart(surveyProduct.id, surveySize, surveyQty);
-  else addPreorder(surveyProduct.id, surveySize, surveyQty);
+  addToCart(surveyProduct.id, surveySize, surveyQty);
   closeSurvey();
   if (modalProduct) closeProduct();
   openDrawer();
@@ -1263,9 +1235,15 @@ function renderSurvey(){
   if (surveyStep >= total){
     const p = surveyProduct;
     const d = surveyDiscount();
-    const sizesHtml = p ? p.sizes.map(s =>
-      `<button class="size-btn ${s===surveySize?'active':''}" data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`
-    ).join('') : '';
+    // Размеры и потолок количества считаем от остатка, как и в карточке товара:
+    // разобранный размер выбрать нельзя, больше остатка не закажешь.
+    const sizesHtml = p ? p.sizes.map(s => {
+      const left = getStockFor(p.id, s) - qtyInCart(p.id, s);
+      return `<button class="size-btn ${s===surveySize?'active':''} ${left<=0?'sold-out':''}" ${left<=0?'disabled':''} data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
+    }).join('') : '';
+    const surveyQtyCap = (p && surveySize)
+      ? Math.max(getStockFor(p.id, surveySize) - qtyInCart(p.id, surveySize), 1)
+      : 1;
     const answersUrl = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(surveyText())}`;
 
     el.innerHTML = `
@@ -1285,7 +1263,7 @@ function renderSurvey(){
           <div class="qty-row">
             <button class="qty-btn" id="surveyQtyMinus" ${surveyQty<=1?'disabled':''}>−</button>
             <span class="qty-val">${surveyQty}</span>
-            <button class="qty-btn" id="surveyQtyPlus" ${surveyQty < PREORDER_MAX_QTY ? '' : 'disabled'}>+</button>
+            <button class="qty-btn" id="surveyQtyPlus" ${surveyQty < surveyQtyCap ? '' : 'disabled'}>+</button>
           </div>
         </div>` : ''}
       </div>
@@ -1305,7 +1283,7 @@ function renderSurvey(){
     const minus = document.getElementById('surveyQtyMinus');
     if (minus) minus.addEventListener('click', ()=>{ surveyQty = Math.max(1, surveyQty-1); renderSurvey(); });
     const plus = document.getElementById('surveyQtyPlus');
-    if (plus) plus.addEventListener('click', ()=>{ surveyQty = Math.min(PREORDER_MAX_QTY, surveyQty+1); renderSurvey(); });
+    if (plus) plus.addEventListener('click', ()=>{ surveyQty = Math.min(surveyQtyCap, surveyQty+1); renderSurvey(); });
     const orderBtn = document.getElementById('surveyOrderBtn');
     if (orderBtn) orderBtn.addEventListener('click', finishSurveyWithOrder);
     return;
@@ -1396,13 +1374,7 @@ function renderModal(){
   if (!modalSize){ addLabel = 'Выберите размер'; addDisabled = true; }
   else if (availableForSize <= 0){ addLabel = 'Этого размера нет'; addDisabled = true; }
 
-  const soldOutPicked = modalSize && availableForSize <= 0;
-  // Пока размер не выбран — счётчик считает остаток, после выбора распроданного
-  // размера тот же счётчик переключается на потолок предзаказа.
-  const qtyCap = soldOutPicked ? PREORDER_MAX_QTY : availableForSize;
-  // Товара нет ни в одном размере — покупка тут возможна только предзаказом,
-  // и цену честнее сразу подписать как предзаказную.
-  const preorderOnly = stockLabel(p).cls === 'stock-out';
+  const qtyCap = availableForSize;
 
   document.getElementById('modalContent').innerHTML = `
     <button class="modal-close" id="modalCloseBtn" aria-label="Закрыть">×</button>
@@ -1415,25 +1387,12 @@ function renderModal(){
     </div>
     <div class="modal-info">
       <h2 id="modalTitle">${escapeHtml(p.name)}</h2>
-      ${priceBlockHtml(p, preorderOnly ? 'по предзаказу' : '')}
+      ${priceBlockHtml(p)}
       <p class="desc">${escapeHtml(p.description)}</p>
-      ${preorderOnly ? '' : `<div class="delivery-note mono">Доставка от 7 до 14 дней</div>`}
       <div>
         <span class="field-label">Размер</span>
         <div class="size-row">${sizesHtml}</div>
       </div>
-      ${soldOutPicked ? `
-      <div class="restock">
-        <div class="restock-title mono">Размер ${escapeHtml(modalSize)} разобрали</div>
-        <p class="restock-note">Можно оформить предзаказ — сроки и оплату продавец согласует в переписке.</p>
-        <div class="qty-row">
-          <button class="qty-btn" id="qtyMinus" ${modalQty<=1?'disabled':''}>−</button>
-          <span class="qty-val" id="qtyVal">${modalQty}</span>
-          <button class="qty-btn" id="qtyPlus" ${modalQty < qtyCap ? '' : 'disabled'}>+</button>
-        </div>
-        <button class="btn" id="preorderBtn">Оформить предзаказ</button>
-        <button class="link-btn" id="restockBtn">Просто сообщить, когда появится</button>
-      </div>` : `
       <div>
         <span class="field-label">Количество</span>
         <div class="qty-row">
@@ -1443,7 +1402,7 @@ function renderModal(){
           <span class="stock-note">${modalSize ? `осталось: ${Math.max(availableForSize,0)}` : 'выберите размер'}</span>
         </div>
       </div>
-      <button class="btn" id="addToCartBtn" ${addDisabled?'disabled style="opacity:.4;cursor:not-allowed;"':''}>${addLabel}</button>`}
+      <button class="btn" id="addToCartBtn" ${addDisabled?'disabled style="opacity:.4;cursor:not-allowed;"':''}>${addLabel}</button>
       ${modalMsg ? `<div class="add-msg">${escapeHtml(modalMsg)}</div>` : ''}
       ${inCart > 0 ? `<button class="btn-outline" id="modalCartBtn">Посмотреть корзину</button>` : ''}
       ${surveyDiscount() ? `
@@ -1468,25 +1427,11 @@ function renderModal(){
   document.querySelectorAll('.thumb').forEach(btn=>{
     btn.addEventListener('click', ()=>{ modalPhoto = Number(btn.dataset.photo) || 0; renderModal(); });
   });
-  const restockBtn = document.getElementById('restockBtn');
-  if (restockBtn) restockBtn.addEventListener('click', ()=>{
-    const text = `Привет! Сообщите, когда появится: ${p.name}, размер ${modalSize}.`;
-    window.open(`https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
-  });
   document.getElementById('qtyMinus').addEventListener('click', ()=>{
     modalQty = Math.max(1, modalQty-1); renderModal();
   });
   document.getElementById('qtyPlus').addEventListener('click', ()=>{
     modalQty = Math.min(Math.max(qtyCap,1), modalQty+1); renderModal();
-  });
-  const preorderBtn = document.getElementById('preorderBtn');
-  if (preorderBtn) preorderBtn.addEventListener('click', ()=>{
-    const asked = modalQty;
-    addPreorder(p.id, modalSize, asked);
-    modalMsg = `Добавлено в предзаказ: размер ${modalSize}, ${asked} шт.`;
-    modalQty = 1;
-    renderModal();
-    render();
   });
   const addBtn = document.getElementById('addToCartBtn');
   if (addBtn) addBtn.addEventListener('click', ()=>{
@@ -1767,13 +1712,13 @@ function renderDrawer(){
   body.innerHTML = cart.map(item=>{
     const p = findProduct(item.productId);
     if (!p) return '';
-    const max = item.preorder ? PREORDER_MAX_QTY : getStockFor(item.productId, item.size);
+    const max = getStockFor(item.productId, item.size);
     return `
     <div class="cart-item">
       ${productPhoto(p)}
       <div class="ci-info">
         <h4>${escapeHtml(p.name)}</h4>
-        <div class="ci-meta">размер: ${escapeHtml(item.size)}${item.preorder ? ' <span class="preorder-flag">предзаказ</span>' : ''}</div>
+        <div class="ci-meta">размер: ${escapeHtml(item.size)}</div>
         <div class="ci-controls">
           <button class="qty-btn" data-dec="${p.id}|${item.size}">−</button>
           <span class="qty-val">${item.qty}</span>
@@ -1848,7 +1793,6 @@ function handleCheckout(){
   // пока товар лежал в корзине
   const shortages = [];
   cart.forEach(item=>{
-    if (item.preorder) return; // остатка для предзаказа нет и не должно быть — сверять не с чем
     const available = getStockFor(item.productId, item.size);
     if (item.qty > available){
       item.qty = Math.max(available, 0);
@@ -1870,8 +1814,7 @@ function handleCheckout(){
   const lines = ['Заказ с сайта SPOTTER:'];
   cart.forEach(item=>{
     const p = findProduct(item.productId);
-    const tag = item.preorder ? ' — ПРЕДЗАКАЗ' : '';
-    lines.push(`— ${p.name}, размер ${item.size}, ${item.qty} шт., ${formatPrice(p.price*item.qty)}${tag}`);
+    lines.push(`— ${p.name}, размер ${item.size}, ${item.qty} шт., ${formatPrice(p.price*item.qty)}`);
   });
   lines.push(`Итого: ${formatPrice(cartTotalPrice())}`);
   if (surveyResult && surveyResult.discount){

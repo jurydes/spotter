@@ -186,10 +186,10 @@
         "XL"
       ],
       "stock": {
-        "S": 0,
-        "M": 0,
-        "L": 0,
-        "XL": 0
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
       },
       "images": [
         "assets/merch/spotter-hoodie-black.jpg"

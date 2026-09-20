@@ -318,7 +318,7 @@ const CONFIG = {
       price: 6700,
       description: 'Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.',
       sizes: ['S','M','L','XL'],
-      stock: { S: 0, M: 0, L: 0, XL: 0 },
+      stock: { S: 5, M: 5, L: 5, XL: 5 },
       popular: true,
       active: true,
       images: ['assets/merch/spotter-hoodie-black.jpg']
