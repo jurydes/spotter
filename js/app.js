@@ -765,11 +765,14 @@ function plural(n, one, few, many){
 function visibleMerch(){
   return CONFIG.merch.filter(p => p.active !== false);
 }
+// Магазин работает по предзаказу, поэтому вместо «в наличии» так и пишем.
+// Остаток при этом настоящий — это размер партии, и когда его остаётся мало,
+// об этом честно сообщаем отдельной строкой.
 function stockLabel(product){
   const total = product.sizes.reduce((a,s)=>a+getStockFor(product.id,s),0);
   if (total <= 0) return { text:'нет в наличии', cls:'stock-out' };
   if (total <= 3) return { text:`осталось ${total}`, cls:'stock-low' };
-  return { text:'в наличии', cls:'stock-ok' };
+  return { text:'предзаказ', cls:'stock-ok' };
 }
 // Сколько единиц этого товара уже лежит в корзине — по всем размерам сразу
 function qtyInCartForProduct(productId){
@@ -782,7 +785,7 @@ function buyButtonHtml(product){
   }
   // Из списка товар в корзину не кладётся: размер нужно выбрать осознанно,
   // поэтому кнопка ведёт в карточку товара, где есть размеры и количество.
-  return `<button class="btn buy-btn" data-choose-size="${product.id}">Выбрать размер</button>`;
+  return `<button class="btn buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
 }
 // Размер скидки за опрос. Через функцию, а не напрямую: config.js у части
 // посетителей может быть старым, без этого поля — тогда 0, и всё, что
