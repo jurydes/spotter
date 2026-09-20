@@ -688,7 +688,10 @@
   .discount-row{font-size:14px;color:var(--accent-light);}
 
   .field-label{font-family:var(--f-mono);font-size:12px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:6px;}
-  .radio-row{display:flex;gap:16px;margin-bottom:12px;}
+  /* В столбец, а не в ряд: с уточнениями («только Москва», «до ближайшего
+     СДЭК») варианты в строку не помещаются и рвутся посреди скобки.
+     Ящик корзины узкий, на телефоне — тем более. */
+  .radio-row{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
   .radio-opt{display:flex;align-items:center;gap:6px;font-size:14px;font-family:var(--f-mono);color:var(--paper);}
   .radio-opt input{accent-color:var(--accent);}
   textarea, input[type=text]{
@@ -698,7 +701,19 @@
   textarea:focus, input[type=text]:focus{border-color:var(--steel);outline:none;}
   .checkout-error{font-family:var(--f-mono);font-size:13px;color:var(--accent-light);display:none;}
   .checkout-error.show{display:block;}
-  .field-note{font-family:var(--f-mono);font-size:13px;color:var(--paper-dim);margin:0;}
+  .field-note{font-family:var(--f-mono);font-size:13px;color:var(--paper-dim);margin:6px 0 0;}
+  .field{display:flex;flex-direction:column;}
+  /* Уточнение прямо в подписи варианта: «только Москва», «до ближайшего
+     СДЭК». Тише самого варианта, но читается вместе с ним — узнать об
+     ограничении лучше до выбора, а не после. */
+  .opt-note{color:var(--paper-dim);font-size:13px;}
+  /* Претензия к конкретному полю — под ним же. Красная рамка и текст
+     рядом: искать объяснение внизу формы человек не должен. */
+  .field-err{
+    font-family:var(--f-mono);font-size:13px;line-height:1.4;
+    color:var(--accent-light);margin-top:6px;
+  }
+  input.bad, textarea.bad{border-color:var(--accent-light);}
   /* Предупреждение о возможном дубле. Намеренно не красное: это не ошибка,
      второй заказ может быть и настоящим — человека надо притормозить,
      а не напугать. */

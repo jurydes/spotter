@@ -28,6 +28,17 @@ let cdekGeo = null;          // координаты покупателя для
 // убрали целиком, корзина становится пустой, и написать об этом внизу
 // формы уже негде — сообщение должно быть видно и над пустой корзиной.
 let cartNotice = '';
+// Ошибки формы по полям. Раньше была одна строка внизу и по одной ошибке
+// за попытку: человек чинил имя, жал «оформить», узнавал про телефон, и так
+// по кругу. Теперь проверяем всё сразу и пишем каждую претензию под своим
+// полем — рядом с тем, что надо исправить.
+let checkoutErrors = {};
+function errHtml(key){
+  return checkoutErrors[key]
+    ? `<div class="field-err" data-err="${key}">${escapeHtml(checkoutErrors[key])}</div>`
+    : '';
+}
+function badAttr(key){ return checkoutErrors[key] ? ' class="bad"' : ''; }
 
 /* =====================================================================
    UTIL
@@ -1949,30 +1960,33 @@ function renderDrawer(){
     <div>
       <span class="field-label">Формат получения</span>
       <div class="radio-row">
-        <label class="radio-opt"><input type="radio" name="delivery" value="Самовывоз" ${checkoutForm.delivery==='Самовывоз'?'checked':''}> Самовывоз</label>
-        <label class="radio-opt"><input type="radio" name="delivery" value="Доставка" ${checkoutForm.delivery==='Доставка'?'checked':''}> Доставка</label>
+        <label class="radio-opt"><input type="radio" name="delivery" value="Самовывоз" ${checkoutForm.delivery==='Самовывоз'?'checked':''}> Самовывоз <span class="opt-note">(только Москва)</span></label>
+        <label class="radio-opt"><input type="radio" name="delivery" value="Доставка" ${checkoutForm.delivery==='Доставка'?'checked':''}> Доставка <span class="opt-note">(до ближайшего СДЭК)</span></label>
       </div>
     </div>
-    <div>
+    <div class="field">
       <span class="field-label">Фамилия и имя</span>
-      <input type="text" id="nameField" autocomplete="name" placeholder="Иванов Иван" value="${escapeHtml(checkoutForm.name)}">
+      <input type="text" id="nameField" autocomplete="name" placeholder="Иванов Иван" value="${escapeHtml(checkoutForm.name)}"${badAttr('name')}>
+      ${errHtml('name')}
     </div>
-    <div>
+    <div class="field">
       <span class="field-label">Телефон</span>
-      <input type="tel" id="phoneField" autocomplete="tel" inputmode="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(checkoutForm.phone)}">
+      <input type="tel" id="phoneField" autocomplete="tel" inputmode="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(checkoutForm.phone)}"${badAttr('phone')}>
+      ${errHtml('phone')}
     </div>
-    <div>
+    <div class="field">
       <span class="field-label">Ник в Telegram</span>
-      <input type="text" id="telegramField" placeholder="@username" value="${escapeHtml(checkoutForm.telegram)}">
+      <input type="text" id="telegramField" placeholder="@username" value="${escapeHtml(checkoutForm.telegram)}"${badAttr('telegram')}>
+      ${errHtml('telegram')}
       <p class="field-note">По нему свяжемся по заказу. Нет ника — напишите номер телефона.</p>
     </div>
-    <div id="deliveryBlock"></div>
+    <div class="field" id="deliveryBlock"></div>
     <div>
       <span class="field-label">Комментарий к заказу (необязательно)</span>
       <textarea id="commentField" rows="2" placeholder="Пожелания по размеру, удобное время связи и т.д.">${escapeHtml(checkoutForm.comment)}</textarea>
     </div>
     <div class="checkout-error mono" id="checkoutError"></div>
-    <button class="btn btn-full" id="checkoutBtn">Оформить заказ в Telegram</button>
+    <button class="btn btn-full" id="checkoutBtn">Оформить заказ</button>
   `;
 
   body.querySelectorAll('[data-inc]').forEach(b=>b.addEventListener('click', ()=>{
@@ -1991,7 +2005,18 @@ function renderDrawer(){
   // изменении количества, и без этого набранное имя пропадало бы.
   const bindField = (id, key)=>{
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', ()=>{ checkoutForm[key] = el.value; });
+    if (!el) return;
+    el.addEventListener('input', ()=>{
+      checkoutForm[key] = el.value;
+      // Претензию снимаем прямо в DOM, без перерисовки: перерисовка бросила бы
+      // каретку в начало поля посреди набора.
+      if (checkoutErrors[key]){
+        delete checkoutErrors[key];
+        el.classList.remove('bad');
+        const msg = foot.querySelector(`[data-err="${key}"]`);
+        if (msg) msg.remove();
+      }
+    });
   };
   bindField('nameField', 'name');
   bindField('phoneField', 'phone');
@@ -2014,17 +2039,27 @@ function renderDeliveryBlock(){
   if (!box) return;
 
   if (checkoutForm.delivery === 'Самовывоз'){
-    box.innerHTML = `<p class="field-note">Место и время самовывоза согласуем в Telegram после заказа.</p>`;
+    box.innerHTML = `<p class="field-note">Самовывоз только в Москве. Место и время согласуем в Telegram после заказа.</p>`;
     return;
   }
 
   // Интеграция со СДЭК не настроена — спрашиваем адрес текстом, как раньше.
   if (!cdekEnabled()){
     box.innerHTML = `
-      <span class="field-label">Адрес доставки</span>
-      <textarea id="addressField" rows="2" placeholder="Город, улица, дом, квартира, индекс">${escapeHtml(checkoutForm.city)}</textarea>`;
+      <span class="field-label">Пункт выдачи СДЭК</span>
+      <textarea id="addressField" rows="2" placeholder="Город, улица, дом — ближайший к вам пункт СДЭК"${checkoutErrors.destination ? ' class="bad"' : ''}>${escapeHtml(checkoutForm.city)}</textarea>
+      ${errHtml('destination')}
+      <p class="field-note">Доставляем до пункта выдачи, курьером до двери не возим.</p>`;
     const a = document.getElementById('addressField');
-    if (a) a.addEventListener('input', ()=>{ checkoutForm.city = a.value; });
+    if (a) a.addEventListener('input', ()=>{
+      checkoutForm.city = a.value;
+      if (checkoutErrors.destination){
+        delete checkoutErrors.destination;
+        a.classList.remove('bad');
+        const m = box.querySelector('[data-err="destination"]');
+        if (m) m.remove();
+      }
+    });
     return;
   }
 
@@ -2045,6 +2080,7 @@ function renderDeliveryBlock(){
 
   box.innerHTML = `
     <span class="field-label">Пункт выдачи СДЭК</span>
+    ${errHtml('destination')}
     ${p ? `
       <div class="cdek-picked">
         <div>
@@ -2083,6 +2119,7 @@ function renderDeliveryBlock(){
   box.querySelectorAll('[data-cdek]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       checkoutForm.point = cdekPoints.find(x => x.code === btn.dataset.cdek) || null;
+      delete checkoutErrors.destination; // пункт выбран, претензия снята
       renderDeliveryBlock();
     });
   });
@@ -2230,6 +2267,7 @@ async function openCdekWidget(){
             work_time: office.work_time || ''
           };
           if (office.city) checkoutForm.city = office.city;
+          delete checkoutErrors.destination;
           cdekWidget.close();
           renderDeliveryBlock();
         }
@@ -2362,12 +2400,6 @@ function duplicateInCart(){
    ===================================================================== */
 async function handleCheckout(){
   const errEl = document.getElementById('checkoutError');
-  const fail = (msg, focusId)=>{
-    errEl.textContent = msg;
-    errEl.classList.add('show');
-    const el = focusId && document.getElementById(focusId);
-    if (el) el.focus();
-  };
   const name = (checkoutForm.name || '').trim();
   const phone = (checkoutForm.phone || '').trim();
   const comment = (checkoutForm.comment || '').trim();
@@ -2376,25 +2408,45 @@ async function handleCheckout(){
   // ФИО и телефон нужны в обоих форматах: на самовывозе — чтобы отдать заказ
   // тому, кто за ним пришёл, при доставке — потому что СДЭК без них посылку
   // не примет.
+  checkoutErrors = {};
   const nameErr = nameError(name);
-  if (nameErr) return fail(nameErr, 'nameField');
+  if (nameErr) checkoutErrors.name = nameErr;
   const phoneErr = phoneError(phone);
-  if (phoneErr) return fail(phoneErr, 'phoneField');
+  if (phoneErr) checkoutErrors.phone = phoneErr;
   const tgErr = telegramError(checkoutForm.telegram);
-  if (tgErr) return fail(tgErr, 'telegramField');
-  const telegram = telegramDisplay(checkoutForm.telegram);
+  if (tgErr) checkoutErrors.telegram = tgErr;
 
   let destination = '';
   if (delivery === 'Доставка'){
     if (cdekEnabled()){
-      if (!checkoutForm.point) return fail('Выберите пункт выдачи СДЭК.', 'cdekCityField');
-      const p = checkoutForm.point;
-      destination = `ПВЗ СДЭК ${p.code}${p.city ? ', ' + p.city : ''}: ${p.address || p.name || ''}`;
+      if (!checkoutForm.point){
+        checkoutErrors.destination = 'Выберите пункт выдачи СДЭК — туда приедет заказ.';
+      }else{
+        const p = checkoutForm.point;
+        destination = `ПВЗ СДЭК ${p.code}${p.city ? ', ' + p.city : ''}: ${p.address || p.name || ''}`;
+      }
+    }else if (!(checkoutForm.city || '').trim()){
+      checkoutErrors.destination = 'Напишите адрес пункта СДЭК, куда привезти заказ.';
     }else{
-      if (!(checkoutForm.city || '').trim()) return fail('Укажите адрес доставки.', 'addressField');
       destination = checkoutForm.city.trim();
     }
   }
+
+  const bad = Object.keys(checkoutErrors);
+  if (bad.length){
+    renderDrawer();
+    // Подсветили всё разом, но курсор ставим в первое поле сверху — чтобы
+    // человек начинал чинить с начала формы, а не с того, что мы проверили
+    // первым по коду.
+    const order = ['name', 'phone', 'telegram', 'destination'];
+    const firstKey = order.find(k => checkoutErrors[k]);
+    const focusId = { name:'nameField', phone:'phoneField', telegram:'telegramField',
+                      destination: cdekEnabled() ? 'cdekCityField' : 'addressField' }[firstKey];
+    const el = focusId && document.getElementById(focusId);
+    if (el) el.focus();
+    return;
+  }
+  const telegram = telegramDisplay(checkoutForm.telegram);
 
   if (cart.length === 0) return;
 
