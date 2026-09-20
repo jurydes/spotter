@@ -46,10 +46,8 @@ jobs:
       # Netlify Identity/Git Gateway, на Yandex это просто нерабочая страница —
       # пусть на spotterlive.ru её вообще не будет (404), а не полурабочий обломок.
       #
-      # editor/ — редактор содержимого, работает прямо с диска (открыл файл
-      # в браузере — и правишь). Наружу пока не выкладываем: страница ничего
-      # не выдаёт без токена, но и висеть на людях ей незачем. Понадобится
-      # доступ с телефона — просто убрать эту строку.
+      # editor/ исключаем из общей синхронизации намеренно: ниже он заливается
+      # отдельным шагом по неочевидному адресу, а не по /editor/.
       #
       # assets/views.json тоже не трогаем: этот файл не лежит в git, его раз
       # в сутки пишет отдельный workflow update-views.yml. Без --exclude здесь
@@ -121,6 +119,31 @@ jobs:
             aws s3 cp "$f" "s3://spotterlive/$f" \
               --endpoint-url=https://storage.yandexcloud.net \
               --cache-control "public, max-age=31536000, immutable" \
+              --content-type "application/javascript; charset=utf-8"
+          done
+
+      # Редактор содержимого. Лежит по адресу со случайным хвостом, а не по
+      # /editor/ — чтобы на него не набредали случайно и не индексировали
+      # поисковики. Это не защита, и выдавать её за защиту нельзя: сайт
+      # статический, и любой пароль в коде страницы виден через «исходный
+      # код». Защищать в ней нечего — ни данных, ни ключей внутри нет,
+      # а настоящий доступ к репозиторию проверяет GitHub по токену,
+      # который каждый приносит свой.
+      #
+      # Без кэша: редактор правится чаще сайта, и ловить его устаревшую
+      # версию из кэша — худшее, что может случиться с инструментом правок.
+      # Типы указываем руками: в js редактора кириллица в подсказках, и без
+      # явной charset браузер может выбрать кодировку сам — и не ту.
+      - name: Залить редактор
+        run: |
+          aws s3 cp editor/index.html s3://spotterlive/edit-7k3m9q/index.html \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --cache-control "no-cache" \
+            --content-type "text/html; charset=utf-8"
+          for f in app.js ui.js; do
+            aws s3 cp "editor/$f" "s3://spotterlive/edit-7k3m9q/$f" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "no-cache" \
               --content-type "application/javascript; charset=utf-8"
           done
 

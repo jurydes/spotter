@@ -10,9 +10,15 @@
      страница -> коммит в GitHub -> GitHub Actions -> бакет -> сайт.
    То есть сохранение здесь = публикация, отдельного деплоя не нужно.
 
-   Токен лежит в localStorage этого браузера и никуда больше не уходит:
-   запросы идут только на api.github.com. Это годится, пока редактор один
-   человек; для команды нужен был бы полноценный вход, а не общий токен.
+   Токен хранится в этом браузере и никуда больше не уходит: запросы идут
+   только на api.github.com. На чужом компьютере галочку «запомнить» можно
+   снять — тогда токен живёт до закрытия вкладки и нигде не остаётся.
+
+   Своего пароля у страницы нет и быть не может: сайт статический, страница
+   лежит файлом, и любой пароль в её коде виден через «исходный код».
+   Защищать тут и нечего — ни данных, ни ключей в ней нет. Настоящая
+   защита на стороне GitHub: без своего токена с правом записи в репозиторий
+   страница бесполезна, а доступ выдаётся и отзывается по людям.
    ===================================================================== */
 
 const REPO = 'jurydes/spotter';
@@ -99,6 +105,29 @@ const SCHEMAS = {
    --------------------------------------------------------------------- */
 let token = '';
 const state = {};   // collection -> { data, sha, dirty }
+
+/* Где держать токен. localStorage — на своём устройстве, sessionStorage —
+   на чужом: он исчезает вместе с вкладкой, даже если про «Выйти» забыли.
+   Оба в try/catch: в приватном режиме запись может бросить исключение,
+   и редактор должен просто работать до конца сессии, а не падать. */
+function tokenStore(remember){
+  try{ return remember ? localStorage : sessionStorage; }catch(e){ return null; }
+}
+function saveToken(value, remember){
+  try{
+    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    const store = tokenStore(remember);
+    if (store) store.setItem(TOKEN_KEY, value);
+  }catch(e){ /* хранилище недоступно — токен живёт только в памяти вкладки */ }
+}
+function readToken(){
+  try{ return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ''; }
+  catch(e){ return ''; }
+}
+function forgetToken(){
+  try{ localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); }catch(e){}
+}
 
 function authHeaders(){
   return { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };

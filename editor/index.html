@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Страница служебная: в поиске ей делать нечего -->
+<meta name="robots" content="noindex, nofollow">
 <title>SPOTTER — редактор сайта</title>
 <style>
   :root{
@@ -94,6 +96,9 @@
   #loginErr{color:#ff8080;font-family:var(--f-mono);font-size:13px;margin:10px 0;}
   .login-row{display:flex;gap:8px;margin-top:14px;}
   .login-row input{flex:1;}
+  .remember{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;cursor:pointer;}
+  .remember input{width:17px;height:17px;accent-color:var(--accent);}
+  .warn{font-size:13px;color:var(--paper-dim);margin:6px 0 0;}
   a{color:var(--accent-light);}
 </style>
 </head>
@@ -114,6 +119,11 @@
     <input id="tokenField" type="password" placeholder="github_pat_…" autocomplete="off">
     <button id="loginBtn" class="primary">Войти</button>
   </div>
+  <label class="remember">
+    <input id="rememberField" type="checkbox" checked>
+    <span>Запомнить на этом устройстве</span>
+  </label>
+  <p class="warn">Снимите галочку на чужом или общем компьютере — тогда токен забудется, как только вы закроете вкладку.</p>
 </div>
 
 <div id="workspace" hidden>

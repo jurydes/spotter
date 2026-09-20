@@ -45,7 +45,7 @@ async function tryLogin(value){
     // репозиторий» — токен может быть живым, но выданным не на тот проект.
     const probe = await fetch(`${API}/repos/${REPO}`, { headers: authHeaders() });
     if (!probe.ok) throw new Error(await describeError(probe));
-    localStorage.setItem(TOKEN_KEY, t);
+    saveToken(t, $('#rememberField').checked);
     $('#login').hidden = true;
     $('#workspace').hidden = false;
     await loadAll();
@@ -60,7 +60,7 @@ async function tryLogin(value){
 function logout(){
   if (Object.values(state).some(s => s && s.dirty) &&
       !confirm('Есть несохранённые правки. Всё равно выйти?')) return;
-  localStorage.removeItem(TOKEN_KEY);
+  forgetToken();
   token = '';
   location.reload();
 }
@@ -336,7 +336,13 @@ async function save(){
 /* --------------------------------------------------------------------- */
 function init(){
   bindEvents();
-  const saved = localStorage.getItem(TOKEN_KEY);
+  const saved = readToken();
+  // Галочку выставляем по тому, где токен нашёлся: иначе вход на чужом
+  // компьютере при следующем заходе молча переложил бы его в постоянное
+  // хранилище — ровно то, чего человек избегал, снимая её.
+  try{
+    if (saved && !localStorage.getItem(TOKEN_KEY)) $('#rememberField').checked = false;
+  }catch(e){}
   if (saved) tryLogin(saved); else showLogin();
 }
 init();
