@@ -57,10 +57,13 @@ collections:
               - {label: "Описание", name: "description", widget: "text"}
               - {label: "Показывать как «Популярное»", name: "popular", widget: "boolean", default: false, hint: "Отметь максимум у одного товара — он выделяется на главной."}
               - {label: "Размеры в продаже", name: "sizes", widget: "list", field: {label: "Размер", name: "size", widget: "string"}, hint: "Обычно S, M, L, XL — по одному размеру на строку, в этом же порядке."}
-              - label: "Остатки по размеру"
+              - {label: "Всего в тираже", name: "editionTotal", widget: "number", value_type: "int", default: 20, required: false, hint: "Сколько штук выпускается всего, по всем размерам вместе. Показывается на сайте как «осталось 18 из 20»."}
+              - {label: "Осталось штук", name: "editionLeft", widget: "number", value_type: "int", default: 20, required: false, hint: "Общий остаток на все размеры — уменьшай вручную по мере заказов. 0 — «всё разобрали», заказать нельзя. Сайт сам это число не списывает: он не знает, какие заказы ты подтвердил."}
+              - label: "Остатки по размеру (не используются)"
                 name: "stock"
                 widget: "object"
-                hint: "Сколько штук есть в наличии. 0 — размер закончился, но остаётся в списке (просто без возможности заказать)."
+                collapsed: true
+                hint: "Осталось от прежней схемы, когда у каждого размера был свой остаток. Сейчас сайт считает по общему тиражу выше и сюда не смотрит. Не удаляй — пригодится, если вернёмся к счёту по размерам."
                 fields:
                   - {label: "S", name: "S", widget: "number", value_type: "int", default: 0}
                   - {label: "M", name: "M", widget: "number", value_type: "int", default: 0}

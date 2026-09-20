@@ -338,13 +338,12 @@ function productPhoto(p, index){
    вкладки — у каждого посетителя свои «остатки», списание видел только
    он сам, и после перезагрузки всё возвращалось.
 
-   Теперь остатки — то, что написано в CONFIG.merch[].stock, и правит их
-   продавец руками. Сайт их не списывает: он не знает, дошёл ли заказ до
-   продавца и подтверждён ли он. Число рядом с размером — справка
-   «сколько есть», а не бронь.
+   Теперь остаток — одно число на товар (editionLeft), и правит его продавец
+   руками. Сайт его не списывает: он не знает, дошёл ли заказ до продавца
+   и подтверждён ли он. «Осталось 18 из 20» — справка, а не бронь.
 
    Настоящая общая на всех посетителей бронь возможна только с бэкендом:
-   тогда getStockFor подменяется запросом к нему, остальной код не меняется.
+   тогда availableFor подменяется запросом к нему, остальной код не меняется.
    ===================================================================== */
 /* Остаток = тираж из админки минус то, что уже заказали другие.
 
@@ -360,19 +359,61 @@ let reservedStock = {};       // 'id|размер' -> сколько занят�
 // Выключатель всей этой механики, CONFIG.reserveStock. Выключено — остаток
 // равен тиражу из админки, как было до резерва.
 function reserveEnabled(){ return CONFIG.reserveStock === true; }
-function getStockFor(productId, size){
+/* Тираж общий, а не по размерам.
+
+   На предзаказе шьётся партия целиком, и заранее неизвестно, каких размеров
+   из неё возьмут больше. Поэтому счётчик один на товар: «осталось 18 из 20»,
+   а какой размер выберут — дело покупателя. Раскладку по размерам считают
+   уже по собранным заказам, а не угадывают до старта.
+
+   editionTotal / editionLeft задаются в товаре и правятся руками. Если их
+   нет — падаем на старую схему и складываем остатки по размерам, чтобы
+   товары, которые так и не перевели на тираж, не сломались. */
+function editionTotal(product){
+  if (!product) return 0;
+  if (typeof product.editionTotal === 'number') return Math.max(product.editionTotal, 0);
+  return sumSizeStock(product);
+}
+function editionLeft(product){
+  if (!product) return 0;
+  if (typeof product.editionLeft === 'number') return Math.max(product.editionLeft, 0);
+  return sumSizeStock(product);
+}
+function sumSizeStock(product){
+  if (!product || !product.stock) return 0;
+  return (product.sizes || []).reduce((a, s)=>{
+    const v = product.stock[s];
+    return a + (typeof v === 'number' ? v : 0);
+  }, 0);
+}
+function usesEdition(product){
+  return !!product && (typeof product.editionLeft === 'number' ||
+                       typeof product.editionTotal === 'number');
+}
+// Сколько ещё можно положить в корзину: общий остаток минус уже отложенное,
+// по всем размерам сразу.
+function availableFor(productId){
   const p = findProduct(productId);
-  if (!p || !p.stock) return 0;
-  const v = p.stock[size];
-  if (typeof v !== 'number') return 0;
-  const taken = reservedStock[productId + '|' + size] || 0;
-  return Math.max(v - taken, 0);
+  if (!p) return 0;
+  const taken = reservedStock[productId] || 0; // резерв по товару, не по размеру
+  return Math.max(editionLeft(p) - taken - qtyInCartForProduct(productId), 0);
+}
+// Потолок для конкретного размера: то, что уже выбрано в нём, плюс свободный
+// остаток тиража. Отдельного лимита на размер больше нет.
+function capForSize(productId, size){
+  return qtyInCart(productId, size) + availableFor(productId);
 }
 // Тираж как он задан в админке, без вычета резерва. Нужен таблице:
 // она знает, сколько заказано, но не знает, сколько всего выпускается.
+//
+// У товаров с общим тиражом лимита на размер нет, а таблица считает
+// заказанное именно по паре «товар + размер». Поэтому здесь возвращаем
+// null: скрипт тогда ничего не проверяет. Пересчёт резерва под общий
+// тираж — отдельная работа, и пока она не нужна, счёт ведётся руками.
 function stockLimitFor(productId, size){
   const p = findProduct(productId);
-  const v = p && p.stock ? p.stock[size] : null;
+  if (!p || usesEdition(p)) return null;
+  const v = p.stock ? p.stock[size] : null;
   return typeof v === 'number' ? v : null;
 }
 function applyReserved(map){
@@ -426,9 +467,8 @@ function qtyInCart(productId, size){
   return item ? item.qty : 0;
 }
 function addToCart(productId, size, qty){
-  const available = getStockFor(productId, size);
-  const already = qtyInCart(productId, size);
-  const room = available - already;
+  // Место считается по тиражу целиком: неважно, в каком размере оно занято
+  const room = availableFor(productId);
   if (room <= 0) return false;
   const add = Math.min(qty, room);
   const existing = cart.find(c => c.productId === productId && c.size === size);
@@ -450,8 +490,7 @@ function setCartQty(productId, size, qty){
   const item = cart.find(c => c.productId === productId && c.size === size);
   if (!item) return;
   if (qty <= 0){ removeFromCart(productId, size); return; }
-  const cap = getStockFor(productId, size);
-  item.qty = Math.min(qty, cap);
+  item.qty = Math.min(qty, capForSize(productId, size));
   saveCart();
   renderCartCount();
   renderDrawer();
@@ -838,9 +877,19 @@ function visibleMerch(){
 // Остаток при этом настоящий — это размер партии, и когда его остаётся мало,
 // об этом честно сообщаем отдельной строкой.
 function stockLabel(product){
-  const total = product.sizes.reduce((a,s)=>a+getStockFor(product.id,s),0);
-  if (total <= 0) return { text:'нет в наличии', cls:'stock-out' };
-  if (total <= 3) return { text:`осталось ${total}`, cls:'stock-low' };
+  const left = editionLeft(product);
+  if (left <= 0) return { text:'всё разобрали', cls:'stock-out' };
+  // Тираж ограничен, и это главное, что нужно знать до покупки: показываем
+  // оба числа. «Осталось 18» без «из 20» не говорит ни о чём — непонятно,
+  // много это или мало.
+  const total = editionTotal(product);
+  if (usesEdition(product) && total > 0){
+    return {
+      text: `осталось ${left} из ${total}`,
+      cls: left <= Math.max(Math.round(total * 0.25), 3) ? 'stock-low' : 'stock-ok'
+    };
+  }
+  if (left <= 3) return { text:`осталось ${left}`, cls:'stock-low' };
   return { text:'предзаказ', cls:'stock-ok' };
 }
 // Сколько единиц этого товара уже лежит в корзине — по всем размерам сразу
@@ -851,6 +900,10 @@ function buyButtonHtml(product){
   // Товар уже в корзине — вместо повторного добавления даём переход в корзину.
   if (qtyInCartForProduct(product.id) > 0){
     return `<button class="btn-outline buy-btn" data-open-cart="${product.id}">Посмотреть корзину</button>`;
+  }
+  // Тираж разобран — кнопка не должна обещать предзаказ, которого не будет.
+  if (editionLeft(product) <= 0){
+    return `<button class="btn-outline buy-btn" disabled style="opacity:.4;cursor:not-allowed;">Тираж разобрали</button>`;
   }
   // Из списка товар в корзину не кладётся: размер нужно выбрать осознанно,
   // поэтому кнопка ведёт в карточку товара, где есть размеры и количество.
@@ -899,7 +952,7 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         ${priceBlockHtml(p)}
-        ${st.cls === 'stock-out' ? '' : `<div class="stock-flag ${st.cls}">${st.text}</div>`}
+        <div class="stock-flag ${st.cls}">${st.text}</div>
         ${buyButtonHtml(p)}
         ${surveyButtonHtml(p, 'survey-btn')}
       </div>
@@ -1391,13 +1444,13 @@ function renderSurvey(){
   if (surveyStep >= total){
     const p = surveyProduct;
     const d = surveyDiscount();
-    // Размеры и потолок количества считаем от остатка, как и в карточке товара:
-    // разобранный размер выбрать нельзя, больше остатка не закажешь.
+    // Тираж общий, поэтому недоступных размеров по отдельности не бывает:
+    // либо в партии ещё есть место, либо её разобрали целиком.
+    const freeLeft = p ? availableFor(p.id) : 0;
     const sizesHtml = p ? p.sizes.map(s => {
-      const left = getStockFor(p.id, s) - qtyInCart(p.id, s);
-      return `<button class="size-btn ${s===surveySize?'active':''} ${left<=0?'sold-out':''}" ${left<=0?'disabled':''} data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
+      return `<button class="size-btn ${s===surveySize?'active':''} ${freeLeft<=0?'sold-out':''}" ${freeLeft<=0?'disabled':''} data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
     }).join('') : '';
-    const leftForSize = (p && surveySize) ? getStockFor(p.id, surveySize) - qtyInCart(p.id, surveySize) : 0;
+    const leftForSize = freeLeft;
     const surveyQtyCap = Math.max(leftForSize, 1);
     const canAdd = !!(p && surveySize && leftForSize > 0);
     const inCartTotal = cartTotalQty();
@@ -1536,15 +1589,14 @@ function renderSurvey(){
 
 function renderModal(){
   const p = modalProduct;
-  // сколько ещё можно взять выбранного размера с учётом того, что уже в корзине
-  const availableForSize = modalSize ? getStockFor(p.id, modalSize) - qtyInCart(p.id, modalSize) : 0;
+  // Место в тираже общее на все размеры, поэтому и остаток один на всех
+  const freeLeft = availableFor(p.id);
+  const availableForSize = modalSize ? freeLeft : 0;
   const inCart = qtyInCartForProduct(p.id);
-  // Распроданный размер остаётся кликабельным: выбрав его, покупатель видит,
-  // что размера нет, и может попросить сообщить о поступлении — вместо
-  // молчаливой серой кнопки, по которой непонятно, что делать дальше.
+  // Размеры гасятся только когда разобрали всю партию: отдельного остатка
+  // по размеру больше нет.
   const sizesHtml = p.sizes.map(s=>{
-    const left = getStockFor(p.id, s) - qtyInCart(p.id, s);
-    return `<button class="size-btn ${s===modalSize?'active':''} ${left<=0?'sold-out':''}" data-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
+    return `<button class="size-btn ${s===modalSize?'active':''} ${freeLeft<=0?'sold-out':''}" data-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
   }).join('');
 
   const images = productImages(p);
@@ -1934,7 +1986,7 @@ function renderDrawer(){
   body.innerHTML = noticeHtml + cart.map(item=>{
     const p = findProduct(item.productId);
     if (!p) return '';
-    const max = getStockFor(item.productId, item.size);
+    const max = capForSize(item.productId, item.size);
     return `
     <div class="cart-item">
       ${productPhoto(p)}
@@ -2454,15 +2506,21 @@ async function handleCheckout(){
 
   if (cart.length === 0) return;
 
-  // Проверка по актуальному каталогу: остатки мог поменять продавец,
-  // пока товар лежал в корзине
+  // Проверка по актуальному каталогу: тираж мог поменять продавец, пока
+  // товар лежал в корзине. Лимит общий на товар, поэтому идём по товарам
+  // и режем позиции, пока набранное не уложится в остаток.
   const shortages = [];
-  cart.forEach(item=>{
-    const available = getStockFor(item.productId, item.size);
-    if (item.qty > available){
-      item.qty = Math.max(available, 0);
-      shortages.push(item);
-    }
+  [...new Set(cart.map(c => c.productId))].forEach(id=>{
+    const p = findProduct(id);
+    let room = p ? editionLeft(p) - (reservedStock[id] || 0) : 0;
+    cart.filter(c => c.productId === id).forEach(item=>{
+      const allowed = Math.max(Math.min(item.qty, room), 0);
+      if (allowed < item.qty){
+        item.qty = allowed;
+        shortages.push(item);
+      }
+      room -= allowed;
+    });
   });
   cart = cart.filter(c => c.qty > 0);
   saveCart();

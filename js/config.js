@@ -356,6 +356,11 @@ const CONFIG = {
       description: 'Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.',
       sizes: ['S','M','L','XL'],
       stock: { S: 5, M: 5, L: 5, XL: 5 },
+      // Тираж общий на все размеры: шьётся партия целиком, и заранее
+      // неизвестно, каких размеров из неё возьмут больше. editionLeft
+      // правится руками по мере заказов.
+      editionTotal: 20,
+      editionLeft: 18,
       popular: true,
       active: true,
       images: [
