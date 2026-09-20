@@ -311,8 +311,11 @@ function writeOrder_(sheet, data) {
   var reserved = reservedMap_();
   var oversold = [];
   items.forEach(function (it) {
-    var limit = Number(it.limit);
-    if (!limit && limit !== 0) return; // лимит не прислали — не мешаем заказу
+    // Лимит не прислали — резерв на сайте выключен, ничего не проверяем.
+    // Проверка именно на тип: Number(null) даёт 0, и такой заказ отклонялся
+    // бы как «тираж исчерпан», хотя тиража просто не назвали.
+    if (typeof it.limit !== 'number') return;
+    var limit = it.limit;
     var key = (it.id || '') + '|' + (it.size || '');
     var left = limit - (reserved[key] || 0);
     if ((Number(it.qty) || 1) > left) {

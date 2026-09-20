@@ -357,6 +357,9 @@ function productPhoto(p, index){
    тиражу: продавать без связи лучше, чем не продавать вообще. Настоящая
    проверка всё равно происходит на стороне таблицы в момент заказа. */
 let reservedStock = {};       // 'id|размер' -> сколько занято
+// Выключатель всей этой механики, CONFIG.reserveStock. Выключено — остаток
+// равен тиражу из админки, как было до резерва.
+function reserveEnabled(){ return CONFIG.reserveStock === true; }
 function getStockFor(productId, size){
   const p = findProduct(productId);
   if (!p || !p.stock) return 0;
@@ -373,11 +376,12 @@ function stockLimitFor(productId, size){
   return typeof v === 'number' ? v : null;
 }
 function applyReserved(map){
+  if (!reserveEnabled()) return;
   if (!map || typeof map !== 'object') return;
   reservedStock = map;
 }
 async function loadReservedStock(){
-  if (!CONFIG.surveySheetUrl) return;
+  if (!reserveEnabled() || !CONFIG.surveySheetUrl) return;
   try{
     const res = await fetch(`${CONFIG.surveySheetUrl}?stock=1`);
     const data = res.ok ? await res.json() : null;
@@ -2483,11 +2487,16 @@ async function handleCheckout(){
 
   const items = cart.map(i=>{
     const p = findProduct(i.productId);
-    return { id: i.productId, name: p ? p.name : i.productId, size: i.size, qty: i.qty,
-             price: p ? p.price : 0,
-             // Тираж отдаём таблице: она считает заказанное, но про размер
-             // тиража знает только админка, то есть только сайт.
-             limit: stockLimitFor(i.productId, i.size) };
+    const it = { id: i.productId, name: p ? p.name : i.productId, size: i.size, qty: i.qty,
+                 price: p ? p.price : 0 };
+    // Тираж отдаём таблице только когда резерв включён. Поле именно
+    // отсутствует, а не равно null: null скрипт прочитал бы как тираж «ноль»
+    // и отклонил бы любой заказ.
+    if (reserveEnabled()){
+      const limit = stockLimitFor(i.productId, i.size);
+      if (typeof limit === 'number') it.limit = limit;
+    }
+    return it;
   });
   const total = cartTotalPrice();
   const discount = (surveyResult && surveyResult.discount) || 0;
