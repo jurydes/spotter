@@ -413,18 +413,13 @@
   .preorder-flag{color:var(--accent-light);text-transform:uppercase;letter-spacing:0.03em;}
   .survey-btn{width:100%;text-align:center;margin-top:8px;padding:11px 6px;font-size:12px;letter-spacing:0.02em;border-color:var(--accent-light);color:var(--accent-light);}
   .survey-btn:hover{background:var(--accent-light);color:var(--ink);}
-  /* Пара цен: базовая зачёркнута и приглушена, итоговая после опроса —
-     крупная и акцентная. Зачёркивание на сайте уже используется так же
-     (распроданные размеры), поэтому приём читается как свой. */
+  /* Цена и плашка скидки рядом. Второй цены в ценнике нет намеренно:
+     крупное число всегда то, что платят, а плашка говорит про выгоду. */
   .price-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
-  .price-old{
-    font-size:15px;color:var(--paper-dim);letter-spacing:0.02em;
-    text-decoration:line-through;text-decoration-thickness:1px;
+  .price-badge{
+    font-size:11px;font-weight:700;letter-spacing:0.03em;white-space:nowrap;
+    color:var(--accent-light);border:1px solid var(--accent-light);padding:2px 7px;
   }
-  /* .price.price-new, а не просто .price-new: у карточки товара цвет цены
-     задан более частным селектором (.merch-card .price) и перебивал бы акцент. */
-  .price.price-new{color:var(--accent-light);}
-  .price-survey{font-size:12px;color:var(--paper-dim);letter-spacing:0.04em;}
   .price-note{font-size:12px;color:var(--paper-dim);letter-spacing:0.04em;text-transform:lowercase;}
   .popular-tag{
     position:absolute;top:8px;left:8px;z-index:2;
@@ -562,6 +557,11 @@
   }
   .survey-other:focus{outline:none;}
   .survey-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  /* Последний шаг: главное действие во всю ширину, под ним две второстепенные
+     ссылки — вернуться к вопросам и отправить ответы без заказа. */
+  .survey-nav-final{flex-direction:column;align-items:stretch;gap:8px;}
+  .survey-nav-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .survey-nav-row .link-btn{padding:2px 0;}
   .survey-done h2{font-size:26px;}
   .survey-done .order-hint{margin:0;}
 
@@ -672,6 +672,8 @@
   .drawer-foot{border-top:1px solid var(--line);padding:20px 22px 26px;display:flex;flex-direction:column;gap:14px;}
   .total-row{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:18px;}
   .total-row b{font-family:var(--f-body);font-weight:700;text-transform:uppercase;font-size:14px;}
+  /* Строка скидки за опрос — между «итого» и суммой с учётом скидки */
+  .discount-row{font-size:14px;color:var(--accent-light);}
 
   .field-label{font-family:var(--f-mono);font-size:12px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:6px;}
   .radio-row{display:flex;gap:16px;margin-bottom:12px;}

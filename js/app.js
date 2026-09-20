@@ -798,7 +798,7 @@ function buyButtonHtml(product){
   if (outOfStock){
     // Остатка нет, но заказать всё равно можно — карточка ведёт в модалку,
     // где для каждого размера открыт путь оформить предзаказ.
-    return `<button class="btn-outline buy-btn" data-choose-size="${product.id}">Предзаказ ${formatPrice(product.price)}</button>`;
+    return `<button class="btn-outline buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
   }
   // Товар уже в корзине — вместо повторного добавления даём переход в корзину.
   if (qtyInCartForProduct(product.id) > 0){
@@ -825,20 +825,19 @@ function priceBlockHtml(p, note){
   if (!d){
     return `<div class="price">${formatPrice(p.price)}${note ? ` <span class="price-note mono">${escapeHtml(note)}</span>` : ''}</div>`;
   }
-  // note (например «по предзаказу») в этой ветке не показываем: строка и так
-  // из трёх частей, четвёртая её переносит. Про предзаказ и без того сказано
-  // на кнопке покупки.
+  // Одна цена — та, что человек платит, — и рядом размер скидки отдельной
+  // плашкой. Двух цен в ценнике намеренно нет: крупное число всегда совпадает
+  // с тем, что стоит на кнопке и уйдёт в заказ.
   return `
     <div class="price-row">
-      <span class="price-old mono">${formatPrice(p.price)}</span>
-      <span class="price price-new">${formatPrice(priceAfterSurvey(p))}</span>
-      <span class="price-survey mono">после опроса</span>
+      <span class="price">${formatPrice(p.price)}</span>
+      <span class="price-badge mono">−${formatPrice(surveyDiscount())} за опрос</span>
+      ${note ? `<span class="price-note mono">${escapeHtml(note)}</span>` : ''}
     </div>`;
 }
+// Сумму скидки на кнопке не повторяем: она уже названа плашкой у цены.
 function surveyButtonHtml(product, cls){
-  const d = surveyDiscount();
-  const label = d ? `Пройти опрос — скидка ${formatPrice(d)}` : 'Пройти опрос и получить скидку';
-  return `<button class="btn-outline ${cls}" data-open-survey="${product.id}">${label}</button>`;
+  return `<button class="btn-outline ${cls}" data-open-survey="${product.id}">Пройти опрос</button>`;
 }
 // Общая карточка товара — используется и в сетке "Мерч", и на главной,
 // чтобы карточки везде были одного размера и вида. tagText — необязательная
@@ -1133,6 +1132,40 @@ const SURVEY_QUESTIONS = [
 let surveyProduct = null;
 let surveyStep = 0;
 let surveyAnswers = [];
+let surveySize = null;       // размер, выбранный на последнем шаге опроса
+let surveyQty = 1;
+// Пройденный опрос, который ждёт отправки вместе с заказом. Лежит в
+// localStorage рядом с корзиной: ответы на восемь вопросов жалко терять
+// из-за случайного обновления страницы между опросом и оформлением.
+let surveyResult = null;
+const SURVEY_KEY = 'spotter-survey-v1';
+
+function saveSurveyResult(){
+  // Вопрос сохраняем вместе с ответом: если формулировки потом поменяются,
+  // уже отправленные ответы не должны разъехаться с новыми вопросами.
+  surveyResult = {
+    discount: surveyDiscount(),
+    lines: SURVEY_QUESTIONS.map((def,i)=>({ q: def.q, a: surveyAnswerText(i) }))
+  };
+  try{ localStorage.setItem(SURVEY_KEY, JSON.stringify(surveyResult)); }catch(e){}
+}
+function loadSurveyResult(){
+  try{
+    const raw = localStorage.getItem(SURVEY_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    surveyResult = (data && Array.isArray(data.lines)) ? data : null;
+  }catch(e){ surveyResult = null; }
+}
+function clearSurveyResult(){
+  surveyResult = null;
+  try{ localStorage.removeItem(SURVEY_KEY); }catch(e){}
+}
+function surveyResultText(){
+  if (!surveyResult) return '';
+  return 'Ответы на опрос:\n\n' + surveyResult.lines
+    .map((l,i)=>`${i+1}. ${l.q}\n${l.a || '— пропущено'}`)
+    .join('\n\n');
+}
 
 // Варианты вопроса вместе с «Другое» — в одном списке, чтобы «Другое»
 // вело себя как обычный переключатель и просто открывало строку ввода.
@@ -1163,10 +1196,14 @@ function surveyOverlayEl(){
   }
   return el;
 }
-function openSurvey(productId){
+function openSurvey(productId, presetSize){
   surveyProduct = findProduct(productId);
   surveyStep = 0;
   surveyAnswers = blankSurveyAnswers();
+  // Размер, уже выбранный в карточке товара, доезжает до последнего шага —
+  // человек не выбирает его дважды.
+  surveySize = presetSize || null;
+  surveyQty = 1;
   const overlay = surveyOverlayEl();
   renderSurvey();
   overlay.classList.add('open');
@@ -1201,27 +1238,76 @@ function surveyText(){
   });
   return lines.join('\n\n');
 }
+// Опрос закончился заказом: ответы запоминаем, товар кладём в корзину и
+// отдаём человека в обычное оформление — там уже есть поля контакта и
+// доставки, дублировать их внутри опроса незачем. В Telegram потом уйдёт
+// одно сообщение: заказ, скидка и ответы вместе.
+function finishSurveyWithOrder(){
+  if (!surveyProduct || !surveySize) return;
+  saveSurveyResult();
+  const left = getStockFor(surveyProduct.id, surveySize) - qtyInCart(surveyProduct.id, surveySize);
+  if (left >= surveyQty) addToCart(surveyProduct.id, surveySize, surveyQty);
+  else addPreorder(surveyProduct.id, surveySize, surveyQty);
+  closeSurvey();
+  if (modalProduct) closeProduct();
+  openDrawer();
+  render();
+}
 function renderSurvey(){
   const el = document.getElementById('surveyModalContent');
   const total = SURVEY_QUESTIONS.length;
 
-  // Финальный экран — все вопросы пройдены, остаётся только отправить черновик
+  // Последний шаг — что именно заказываем. Опрос заканчивается не «спасибо,
+  // отправьте ответы», а готовым заказом: иначе человеку пришлось бы отдельно
+  // идти оформлять предзаказ, а нам — сводить два сообщения в одно.
   if (surveyStep >= total){
-    const url = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(surveyText())}`;
+    const p = surveyProduct;
+    const d = surveyDiscount();
+    const sizesHtml = p ? p.sizes.map(s =>
+      `<button class="size-btn ${s===surveySize?'active':''}" data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`
+    ).join('') : '';
+    const answersUrl = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(surveyText())}`;
+
     el.innerHTML = `
       <button class="modal-close" id="surveyCloseBtn" aria-label="Закрыть">×</button>
-      <div class="survey-body survey-done">
-        <span class="field-label">Готово</span>
-        <h2 class="survey-q">Спасибо за ответы</h2>
-        <p class="order-hint">Отправьте их нам в Telegram — и мы пришлём туда же скидку${surveyDiscount() ? ' ' + formatPrice(surveyDiscount()) : ''}${surveyProduct ? ` на «${escapeHtml(surveyProduct.name)}»` : ' на мерч'}.</p>
+      <div class="survey-body">
+        <div class="survey-progress mono">готово</div>
+        <div class="survey-bar"><div class="survey-bar-fill" style="width:100%"></div></div>
+        <h2 class="survey-q">Спасибо. Что заказываем?</h2>
+        ${p ? `
+        <p class="order-hint">${escapeHtml(p.name)} — ${formatPrice(p.price)}${d ? `, со скидкой за опрос ${formatPrice(priceAfterSurvey(p))}` : ''}.</p>
+        <div>
+          <span class="field-label">Размер</span>
+          <div class="size-row">${sizesHtml}</div>
+        </div>
+        <div>
+          <span class="field-label">Количество</span>
+          <div class="qty-row">
+            <button class="qty-btn" id="surveyQtyMinus" ${surveyQty<=1?'disabled':''}>−</button>
+            <span class="qty-val">${surveyQty}</span>
+            <button class="qty-btn" id="surveyQtyPlus" ${surveyQty < PREORDER_MAX_QTY ? '' : 'disabled'}>+</button>
+          </div>
+        </div>` : ''}
       </div>
-      <div class="survey-nav">
-        <button class="link-btn" id="surveyRestartBtn">Пройти заново</button>
-        <a class="btn" id="surveySendBtn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Отправить в Telegram</a>
+      <div class="survey-nav survey-nav-final">
+        ${p ? `<button class="btn btn-full" id="surveyOrderBtn" ${surveySize ? '' : 'disabled style="opacity:.4;cursor:not-allowed;"'}>${surveySize ? 'В корзину со скидкой' : 'Выберите размер'}</button>` : ''}
+        <div class="survey-nav-row">
+          <button class="link-btn" id="surveyBackBtn">Назад к вопросам</button>
+          <a class="link-btn" id="surveySendBtn" href="${escapeHtml(answersUrl)}" target="_blank" rel="noopener">Просто отправить ответы</a>
+        </div>
       </div>
     `;
     document.getElementById('surveyCloseBtn').addEventListener('click', closeSurvey);
-    document.getElementById('surveyRestartBtn').addEventListener('click', ()=>{ surveyStep = 0; renderSurvey(); });
+    document.getElementById('surveyBackBtn').addEventListener('click', ()=>{ surveyStep = total-1; renderSurvey(); });
+    el.querySelectorAll('[data-survey-size]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ surveySize = btn.dataset.surveySize; renderSurvey(); });
+    });
+    const minus = document.getElementById('surveyQtyMinus');
+    if (minus) minus.addEventListener('click', ()=>{ surveyQty = Math.max(1, surveyQty-1); renderSurvey(); });
+    const plus = document.getElementById('surveyQtyPlus');
+    if (plus) plus.addEventListener('click', ()=>{ surveyQty = Math.min(PREORDER_MAX_QTY, surveyQty+1); renderSurvey(); });
+    const orderBtn = document.getElementById('surveyOrderBtn');
+    if (orderBtn) orderBtn.addEventListener('click', finishSurveyWithOrder);
     return;
   }
 
@@ -1424,7 +1510,7 @@ function bindModalCartBtn(){
   // Кнопки внутри модалки навешиваются здесь: bindDynamicHandlers() проходит
   // по странице после render(), а модалку рисует renderModal() отдельно.
   const modalSurveyBtn = document.querySelector('#modalContent [data-open-survey]');
-  if (modalSurveyBtn) modalSurveyBtn.addEventListener('click', ()=>openSurvey(p.id));
+  if (modalSurveyBtn) modalSurveyBtn.addEventListener('click', ()=>openSurvey(p.id, modalSize));
 }
 bindEl('productOverlay', 'click', e=>{
   if (e.target.id === 'productOverlay') closeProduct();
@@ -1659,6 +1745,7 @@ function renderDrawer(){
     document.getElementById('sentBtn').addEventListener('click', ()=>{
       cart = [];
       saveCart();
+      clearSurveyResult(); // ответы уехали вместе с заказом, держать их больше незачем
       checkoutOrder = null;
       renderCartCount();
       renderDrawer();
@@ -1700,6 +1787,9 @@ function renderDrawer(){
 
   foot.innerHTML = `
     <div class="total-row"><b>Итого</b><span class="mono">${formatPrice(cartTotalPrice())}</span></div>
+    ${surveyResult && surveyResult.discount ? `
+    <div class="total-row discount-row"><span>Скидка за опрос</span><span class="mono">−${formatPrice(surveyResult.discount)}</span></div>
+    <div class="total-row"><b>С учётом скидки</b><span class="mono">${formatPrice(Math.max(cartTotalPrice() - surveyResult.discount, 0))}</span></div>` : ''}
 
     <div>
       <span class="field-label">Формат получения</span>
@@ -1784,10 +1874,16 @@ function handleCheckout(){
     lines.push(`— ${p.name}, размер ${item.size}, ${item.qty} шт., ${formatPrice(p.price*item.qty)}${tag}`);
   });
   lines.push(`Итого: ${formatPrice(cartTotalPrice())}`);
+  if (surveyResult && surveyResult.discount){
+    lines.push(`Скидка за опрос: −${formatPrice(surveyResult.discount)}`);
+    lines.push(`С учётом скидки: ${formatPrice(Math.max(cartTotalPrice() - surveyResult.discount, 0))}`);
+  }
   lines.push(`Формат получения: ${delivery}`);
   lines.push(`Контакт: ${contact}`);
   if (comment) lines.push(`Комментарий: ${comment}`);
-  const text = lines.join('\n');
+  // Ответы опроса едут тем же сообщением, что и заказ: иначе продавцу
+  // пришлось бы сводить два разных сообщения от одного человека.
+  const text = lines.join('\n') + (surveyResult ? '\n\n' + surveyResultText() : '');
 
   // Ссылка только подставляет черновик — отправляет его человек руками.
   // Поэтому корзину здесь не трогаем: она очистится, когда покупатель
@@ -1825,6 +1921,7 @@ async function copyOrder(text){
 function init(){
   document.getElementById('year').textContent = new Date().getFullYear();
   loadCart();
+  loadSurveyResult();
   renderCartCount();
   applyRoute(); // разбирает адрес и рисует нужный раздел
   refreshViews(); // не ждём: страница уже нарисована со снимком просмотров
