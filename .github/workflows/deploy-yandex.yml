@@ -104,6 +104,20 @@ jobs:
               --content-type "application/javascript; charset=utf-8"
           done
 
+      # Виджет СДЭК — чужой, неизменяемый файл с версией прямо в имени,
+      # поэтому кэш на год и никаких безверсионных копий. Лежит в js/vendor,
+      # а весь js/* из общей синхронизации исключён — без этого шага файла
+      # в бакете просто не будет, и кнопка «выбрать на карте» ничего
+      # не откроет.
+      - name: Залить виджет СДЭК
+        run: |
+          for f in js/vendor/*.js; do
+            aws s3 cp "$f" "s3://spotterlive/$f" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "public, max-age=31536000, immutable" \
+              --content-type "application/javascript; charset=utf-8"
+          done
+
       # index.html и данные из админки, наоборот, не кэшируем совсем: они
       # маленькие, а видеть их надо сразу. Именно свежий index.html и решает,
       # какая версия css/js поедет посетителю.

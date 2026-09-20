@@ -1966,14 +1966,17 @@ function renderDeliveryBlock(){
           <div class="cdek-meta mono">${escapeHtml(p.city || '')}${p.work_time ? ' · ' + escapeHtml(p.work_time) : ''}</div>
         </div>
         <button class="link-btn" id="cdekResetBtn">выбрать другой</button>
-      </div>` : `
+      </div>` : (cdekMapEnabled() && !cdekWidgetBroken ? `
+      <button class="btn-outline btn-full" id="cdekMapBtn">Выбрать пункт на карте</button>
+      <p class="field-note">Откроется карта СДЭК: выберите пункт — адрес подставится сам.</p>
+    ` : `
       <div class="cdek-search">
         <input type="text" id="cdekCityField" placeholder="Город — например, Москва" value="${escapeHtml(checkoutForm.city)}">
         <button class="btn-outline" id="cdekFindBtn">Найти</button>
       </div>
       ${navigator.geolocation ? `<button class="link-btn" id="cdekGeoBtn">Сначала ближайшие ко мне</button>` : ''}
       ${listHtml}
-    `}`;
+    `)}`;
 
   const cityEl = document.getElementById('cdekCityField');
   if (cityEl){
@@ -1982,6 +1985,7 @@ function renderDeliveryBlock(){
       if (e.key === 'Enter'){ e.preventDefault(); searchCdekPoints(); }
     });
   }
+  bindEl('cdekMapBtn', 'click', openCdekWidget);
   bindEl('cdekFindBtn', 'click', searchCdekPoints);
   bindEl('cdekGeoBtn', 'click', ()=>{
     // Координаты сортируют уже найденный список, поэтому если его ещё нет —
@@ -2053,6 +2057,79 @@ function nameError(raw){
    работает и без настроенной интеграции.
    ===================================================================== */
 function cdekEnabled(){ return !!(CONFIG.cdekPointsUrl || '').trim(); }
+// Карта — только когда есть оба ключа. Без ключа Яндекс.Карт виджет
+// не покажет ничего, поэтому в таком случае остаёмся на простом списке.
+function cdekMapEnabled(){ return cdekEnabled() && !!(CONFIG.cdekWidgetKey || '').trim(); }
+
+/* ---------------------------------------------------------------------
+   ВИДЖЕТ СДЭК С КАРТОЙ.
+
+   Официальный виджет (@cdek-it/widget), лежит у нас же в js/vendor.
+   Грузится лениво, по нажатию «Выбрать на карте»: он весит под 700 КБ,
+   и платить этим весом за каждый заход на сайт — при том что до корзины
+   дойдут единицы — незачем.
+
+   Если файл не загрузился или виджет упал (нет ключа, не отвечает
+   функция), молча остаёмся на списке пунктов: выбрать ПВЗ человек
+   должен в любом случае.
+   --------------------------------------------------------------------- */
+const CDEK_WIDGET_SRC = 'js/vendor/cdek-widget.4.0.0.umd.js';
+let cdekWidget = null;
+let cdekWidgetBroken = false;
+
+function loadCdekWidgetScript(){
+  if (window.CDEKWidget) return Promise.resolve(true);
+  if (loadCdekWidgetScript.pending) return loadCdekWidgetScript.pending;
+  loadCdekWidgetScript.pending = new Promise(resolve=>{
+    const s = document.createElement('script');
+    s.src = CDEK_WIDGET_SRC;
+    s.onload = ()=>resolve(!!window.CDEKWidget);
+    s.onerror = ()=>resolve(false);
+    document.head.appendChild(s);
+  });
+  return loadCdekWidgetScript.pending;
+}
+
+async function openCdekWidget(){
+  const btn = document.getElementById('cdekMapBtn');
+  if (btn){ btn.disabled = true; btn.textContent = 'Открываю карту…'; }
+  const ok = await loadCdekWidgetScript();
+  if (!ok){
+    cdekWidgetBroken = true;
+    renderDeliveryBlock(); // молча переключаемся на список
+    return;
+  }
+  try{
+    if (!cdekWidget){
+      cdekWidget = new window.CDEKWidget({
+        apiKey: CONFIG.cdekWidgetKey,
+        servicePath: CONFIG.cdekPointsUrl,
+        popup: true,
+        // Курьером до двери не возим: у проекта нет ни тарифа, ни склада
+        // отправки — только выдача в пункте.
+        hideDeliveryOptions: { door: true, office: false },
+        defaultLocation: (checkoutForm.city || '').trim() || CONFIG.cdekDefaultCity || 'Москва',
+        onChoose: (type, tariff, office)=>{
+          if (!office || !office.code) return;
+          checkoutForm.point = {
+            code: office.code,
+            name: office.name || '',
+            address: office.address || office.name || '',
+            city: office.city || '',
+            work_time: office.work_time || ''
+          };
+          if (office.city) checkoutForm.city = office.city;
+          cdekWidget.close();
+          renderDeliveryBlock();
+        }
+      });
+    }
+    cdekWidget.open();
+  }catch(e){
+    cdekWidgetBroken = true;
+  }
+  renderDeliveryBlock();
+}
 
 // Расстояние по прямой, км. Нужно только для сортировки «сначала ближние»,
 // поэтому землю считаем шаром — разница с настоящей геодезией здесь
