@@ -825,12 +825,15 @@ function priceBlockHtml(p, note){
   if (!d){
     return `<div class="price">${formatPrice(p.price)}${note ? ` <span class="price-note mono">${escapeHtml(note)}</span>` : ''}</div>`;
   }
+  // note (например «по предзаказу») в этой ветке не показываем: строка и так
+  // из трёх частей, четвёртая её переносит. Про предзаказ и без того сказано
+  // на кнопке покупки.
   return `
     <div class="price-row">
       <span class="price-old mono">${formatPrice(p.price)}</span>
       <span class="price price-new">${formatPrice(priceAfterSurvey(p))}</span>
-    </div>
-    <div class="price-survey mono">после опроса${note ? ` · ${escapeHtml(note)}` : ''}</div>`;
+      <span class="price-survey mono">после опроса</span>
+    </div>`;
 }
 function surveyButtonHtml(product, cls){
   const d = surveyDiscount();
@@ -849,8 +852,9 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         ${priceBlockHtml(p)}
-        ${st.cls === 'stock-out' ? '' : `<div class="stock-flag ${st.cls}">${st.text}</div>`}
-        <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
+        ${st.cls === 'stock-out' ? '' : `
+        <div class="stock-flag ${st.cls}">${st.text}</div>
+        <div class="delivery-note mono">Доставка от 7 до 14 дней</div>`}
         ${buyButtonHtml(p)}
         ${surveyButtonHtml(p, 'survey-btn')}
       </div>
@@ -1327,7 +1331,7 @@ function renderModal(){
       <h2 id="modalTitle">${escapeHtml(p.name)}</h2>
       ${priceBlockHtml(p, preorderOnly ? 'по предзаказу' : '')}
       <p class="desc">${escapeHtml(p.description)}</p>
-      <div class="delivery-note mono">Доставка от 7 до 14 дней</div>
+      ${preorderOnly ? '' : `<div class="delivery-note mono">Доставка от 7 до 14 дней</div>`}
       <div>
         <span class="field-label">Размер</span>
         <div class="size-row">${sizesHtml}</div>
