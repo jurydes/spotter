@@ -1261,6 +1261,10 @@ function openSurvey(productId, presetSize){
   surveyMsg = '';
   surveyError = '';
   surveyId = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  // Новое прохождение — новый id и новая строка в таблице. Без сброса
+  // второй опрос за сессию (закрыл, передумал, прошёл заново) молча
+  // никуда не уезжал.
+  surveySheetSent = false;
   const overlay = surveyOverlayEl();
   renderSurvey();
   overlay.classList.add('open');
