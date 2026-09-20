@@ -21,6 +21,7 @@ var SHEET_NAME = 'Ответы';
 // заказ пишется в них, ничего не зная про вопросы.
 var BASE_COLUMNS = ['Дата', 'ID', 'Товар'];
 var ORDER_COLUMNS = [
+  'Номер заказа',
   'Заказ оформлен',
   'ФИО',
   'Телефон',
@@ -43,10 +44,9 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
     var sheet = ensureSheet_();
     if (data.type === 'order') {
-      writeOrder_(sheet, data);
-    } else {
-      writeSurvey_(sheet, data);
+      return json_(writeOrder_(sheet, data));
     }
+    writeSurvey_(sheet, data);
     return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -145,19 +145,71 @@ function writeSurvey_(sheet, data) {
   });
 }
 
+/* ---------------------------------------------------------------------
+   НУМЕРАЦИЯ.
+
+   Счётчики живут в свойствах скрипта, а не в таблице: их читают и пишут
+   под тем же замком, что и строки, поэтому два одновременных заказа
+   не получат один номер. В таблице номер был бы уязвим — достаточно
+   кому-то отсортировать или вставить строку.
+
+   Выдаём сразу диапазон: заказ на три худи забирает три номера за один
+   раз. Номера закрепляются в момент оформления, так что отменённый
+   заказ оставляет в нумерации дыру — это цена того, что покупатель
+   узнаёт свой номер сразу, а не через день.
+   --------------------------------------------------------------------- */
+function takeNumbers_(key, count) {
+  var props = PropertiesService.getScriptProperties();
+  var used = Number(props.getProperty(key) || 0);
+  var first = used + 1;
+  props.setProperty(key, String(used + count));
+  var out = [];
+  for (var i = 0; i < count; i++) out.push(first + i);
+  return out;
+}
+
+function orderNumber_() {
+  var n = takeNumbers_('orderSeq', 1)[0];
+  return 'SP-' + ('0000' + n).slice(-4);
+}
+
 function writeOrder_(sheet, data) {
   var row = rowFor_(sheet, data.id);
-  // Колонки заказа идут сразу за базовыми и всегда на одном месте
+
+  // Номер заказа выдаём один раз: повторный запрос с тем же id (человек
+  // нажал «оформить» дважды, не дошло подтверждение) должен вернуть
+  // тот же номер, а не занять новый.
+  var numCell = sheet.getRange(row, BASE_COLUMNS.length + 1);
+  var existing = String(numCell.getValue() || '');
+  if (existing) {
+    return { ok: true, order: existing, units: [], repeat: true };
+  }
+
+  var number = orderNumber_();
+  var items = data.items || [];
+  var units = [];
+  var lines = [];
+  items.forEach(function (it) {
+    var qty = Number(it.qty) || 1;
+    // Свой счётчик на каждый товар: худи нумеруются отдельно от футболок
+    var nums = takeNumbers_('unit:' + (it.id || 'item'), qty);
+    units.push({ id: it.id, size: it.size, numbers: nums });
+    lines.push((it.name || it.id) + ' / ' + it.size + ' / ' + qty + ' шт. / №' + nums.join(', №'));
+  });
+
   var start = BASE_COLUMNS.length + 1;
   sheet.getRange(row, start, 1, ORDER_COLUMNS.length).setValues([[
+    number,
     new Date(),
     data.name || '',
     data.phone || '',
     data.delivery || '',
     data.destination || '',
-    data.items || '',
+    lines.join('; '),
     data.total || '',
     data.discount || '',
     data.comment || ''
   ]]);
+
+  return { ok: true, order: number, units: units };
 }

@@ -613,6 +613,24 @@
   /* экран сформированного заказа */
   .order-done{padding:18px 0;}
   .order-done h3{font-size:22px;margin-bottom:10px;}
+  /* Номер — первое, что должно броситься в глаза: по нему человек и
+     узнаёт свой заказ в переписке. */
+  .order-no{
+    font-size:13px;letter-spacing:0.12em;color:var(--accent-light);
+    text-transform:uppercase;margin-bottom:4px;
+  }
+  .ordered-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  .ordered-item{
+    display:flex;gap:10px;align-items:baseline;
+    font-size:14px;line-height:1.4;color:var(--paper);
+  }
+  .ordered-check{color:var(--accent-light);flex:0 0 auto;}
+  /* Номер вещи — не украшение: у дропа он единственный способ сказать,
+     какой именно экземпляр уехал человеку. */
+  .unit-no{
+    display:inline-block;margin-left:6px;font-size:12px;
+    color:var(--accent-light);letter-spacing:0.06em;
+  }
   .order-hint{font-size:14px;color:var(--paper-dim);margin-bottom:14px;font-family:var(--f-body);}
   .order-text{
     font-family:var(--f-mono);font-size:13px;line-height:1.6;color:var(--paper);
@@ -681,6 +699,13 @@
   .checkout-error{font-family:var(--f-mono);font-size:13px;color:var(--accent-light);display:none;}
   .checkout-error.show{display:block;}
   .field-note{font-family:var(--f-mono);font-size:13px;color:var(--paper-dim);margin:0;}
+  /* Предупреждение о возможном дубле. Намеренно не красное: это не ошибка,
+     второй заказ может быть и настоящим — человека надо притормозить,
+     а не напугать. */
+  .dup-warn{
+    font-size:13px;line-height:1.45;color:var(--paper);
+    border-left:2px solid var(--accent-light);padding:8px 0 8px 10px;
+  }
   input[type=tel]{
     width:100%;background:var(--surface);border:1px solid var(--line);color:var(--paper);
     font-family:var(--f-body);font-size:15px;padding:10px 12px;

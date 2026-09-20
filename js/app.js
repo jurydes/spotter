@@ -10,7 +10,12 @@ let modalSize = null;
 let modalQty = 1;
 let modalMsg = '';           // подтверждение добавления, живёт как состояние модалки
 let modalPhoto = 0;          // какое фото товара показано в галерее
-let checkoutOrder = null;    // сформированный заказ, ждёт подтверждения отправки
+// Оформленный заказ: номер, состав с номерами вещей и готовый текст для
+// телеграма. Переживает перезагрузку — человек, который вернулся на сайт
+// через час, должен увидеть, что заказ уже оформлен, а не пустую корзину
+// и соблазн заказать второй раз.
+let placedOrder = null;
+const ORDER_KEY = 'spotter-order-v1';
 // Поля оформления держим состоянием, а не читаем из DOM по факту: подвал
 // корзины перерисовывается при каждом изменении количества, и набранные
 // имя с телефоном иначе стирались бы на ровном месте.
@@ -1194,24 +1199,24 @@ function surveyStepError(i){
    Google Apps Script (see serverless/google-sheets), он принимает POST и
    дописывает строку.
 
-   mode:'no-cors' — потому что Apps Script не отдаёт CORS-заголовки. Ответ
-   мы прочитать не сможем (и не пытаемся), но запрос уходит и строка
-   пишется. Content-Type тоже не наш каприз: с text/plain браузер шлёт
-   запрос напрямую, без предварительного OPTIONS, который Apps Script
-   не обработает.
+   Content-Type: text/plain — не каприз. С ним браузер шлёт запрос
+   напрямую, без предварительного OPTIONS, который Apps Script
+   не обрабатывает. А вот ответ читается нормально: Google отдаёт
+   Access-Control-Allow-Origin на обоих шагах, и на редиректе тоже, —
+   проверено. Поэтому таблица может не только принимать, но и отвечать,
+   на чём и держится выдача номера заказа.
    --------------------------------------------------------------------- */
 function sendToSheet(payload){
   const url = CONFIG.surveySheetUrl;
-  if (!url) return; // приёмник не настроен — молча ничего не делаем
-  try{
-    fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      keepalive: true, // запрос доживёт, даже если страница уже уходит в телеграм
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }).catch(()=>{});
-  }catch(e){ /* отправка в таблицу не должна мешать заказу */ }
+  if (!url) return Promise.resolve(null); // приёмник не настроен
+  return fetch(url, {
+    method: 'POST',
+    keepalive: true, // запрос доживёт, даже если страница уже уходит в телеграм
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.ok ? r.json() : null)
+  .catch(()=> null); // таблица не должна мешать заказу
 }
 // Ответы уезжают один раз — в момент, когда человек дошёл до конца опроса.
 // Дальше он может добавлять размеры и передумывать, ответы от этого
@@ -1787,7 +1792,6 @@ function openDrawer(){
 function closeDrawer(){
   document.getElementById('drawerOverlay').classList.remove('open');
   document.getElementById('cartDrawer').classList.remove('open');
-  checkoutOrder = null; // при следующем открытии — снова корзина, а не экран отправки
   releaseFocus();
   // карточка товара может остаться открытой под корзиной — тогда замок не снимаем
   if (!isOpen('productOverlay')) lockScroll(false);
@@ -1800,35 +1804,43 @@ function renderDrawer(){
   const body = document.getElementById('drawerBody');
   const foot = document.getElementById('drawerFoot');
 
-  // Экран «заказ сформирован» — показывается вместо корзины после нажатия
-  // «Оформить». Корзина при этом ещё цела: пока покупатель не подтвердит,
-  // что отправил сообщение, терять её нельзя.
-  if (checkoutOrder){
+  // Экран оформленного заказа. Показывается вместо корзины и переживает
+  // перезагрузку: вернувшийся через час человек должен увидеть свой заказ,
+  // а не пустую корзину, из которой непонятно, прошло что-то или нет.
+  // Повторно оформить отсюда нельзя — только начать новый заказ осознанно.
+  // Пока корзина пуста — показываем последний заказ. Как только человек
+  // осознанно положил что-то ещё, уступаем место корзине: иначе он просто
+  // не смог бы оформить второй заказ.
+  if (placedOrder && cart.length === 0){
+    const items = (placedOrder.lines || []).map(l=>`
+      <div class="ordered-item">
+        <span class="ordered-check">✓</span>
+        <span>
+          ${escapeHtml(l.name)} · ${escapeHtml(l.size)} · ${l.qty} шт.
+          ${l.numbers && l.numbers.length ? `<span class="unit-no mono">${l.numbers.map(n=>'№'+n).join(' ')}</span>` : ''}
+        </span>
+      </div>`).join('');
+
     body.innerHTML = `
       <div class="order-done">
-        <h3>Заказ сформирован</h3>
-        <p class="order-hint">Telegram откроется с готовым сообщением — его нужно <b>отправить вручную</b>, само оно не уйдёт. Если Telegram не открылся, скопируйте текст и пришлите его нам любым способом.</p>
-        <pre class="order-text" id="orderText">${escapeHtml(checkoutOrder.text)}</pre>
+        <div class="order-no mono">Заказ ${escapeHtml(placedOrder.number)}</div>
+        <h3>Заказ оформлен</h3>
+        <div class="ordered-list">${items}</div>
+        <p class="order-hint"><b>Заказ ещё не у нас.</b> Нажмите кнопку ниже — Telegram откроется с готовым сообщением, и его нужно <b>отправить вручную</b>. Если Telegram не открылся, скопируйте текст и пришлите нам любым способом.</p>
+        <pre class="order-text" id="orderText">${escapeHtml(placedOrder.text)}</pre>
       </div>`;
     foot.innerHTML = `
-      <a class="btn btn-full" id="tgBtn" href="${escapeHtml(checkoutOrder.url)}" target="_blank" rel="noopener">Открыть Telegram</a>
+      <a class="btn btn-full" id="tgBtn" href="${escapeHtml(placedOrder.url)}" target="_blank" rel="noopener">Отправить заказ в Telegram</a>
       <button class="btn-outline btn-full" id="copyBtn">Скопировать заказ</button>
-      <button class="btn-outline btn-full" id="sentBtn">Я отправил — очистить корзину</button>
-      <button class="link-btn" id="backToCartBtn">Вернуться к корзине</button>
-      <div class="add-msg" id="copyMsg"></div>`;
-    document.getElementById('copyBtn').addEventListener('click', ()=>copyOrder(checkoutOrder.text));
-    document.getElementById('sentBtn').addEventListener('click', ()=>{
-      cart = [];
-      saveCart();
-      clearSurveyResult(); // ответы уехали вместе с заказом, держать их больше незачем
-      checkoutOrder = null;
-      renderCartCount();
+      <div class="add-msg" id="copyMsg"></div>
+      <button class="link-btn" id="newOrderBtn">Оформить ещё один заказ</button>`;
+    document.getElementById('copyBtn').addEventListener('click', ()=>copyOrder(placedOrder.text));
+    // Единственный путь к новому заказу — осознанное нажатие. Именно это
+    // и защищает от «кажется, не прошло, оформлю ещё разок».
+    document.getElementById('newOrderBtn').addEventListener('click', ()=>{
+      clearPlacedOrder();
       renderDrawer();
       render();
-    });
-    document.getElementById('backToCartBtn').addEventListener('click', ()=>{
-      checkoutOrder = null;
-      renderDrawer();
     });
     return;
   }
@@ -1861,6 +1873,7 @@ function renderDrawer(){
   }).join('');
 
   foot.innerHTML = `
+    ${placedOrder ? `<div class="dup-warn">Вы уже оформили заказ <b>${escapeHtml(placedOrder.number)}</b>${placedOrder.lines && placedOrder.lines.length ? ` (${escapeHtml(placedOrder.lines.map(l=>l.name + ' ' + l.size).join(', '))})` : ''}. Убедитесь, что это не то же самое.</div>` : ''}
     <div class="total-row"><b>Итого</b><span class="mono">${formatPrice(cartTotalPrice())}</span></div>
     ${surveyResult && surveyResult.discount ? `
     <div class="total-row discount-row"><span>Скидка за опрос</span><span class="mono">−${formatPrice(surveyResult.discount)}</span></div>
@@ -2188,13 +2201,43 @@ function useMyLocation(){
   );
 }
 
+/* ---------------------------------------------------------------------
+   ОФОРМЛЕННЫЙ ЗАКАЗ.
+
+   Номер выдаёт таблица — единственное место, общее для всех покупателей.
+   В браузере сквозной номер получить неоткуда: у каждого свой счётчик,
+   и первый заказ был бы первым у всех сразу.
+   --------------------------------------------------------------------- */
+// Запасной номер, когда таблица не ответила. По нему заказ всё так же
+// находится в переписке, просто он не сквозной — и это видно по виду.
+function localOrderNumber(){
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `SP-${p(d.getDate())}${p(d.getMonth()+1)}-` +
+         Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+function savePlacedOrder(){
+  try{ localStorage.setItem(ORDER_KEY, JSON.stringify(placedOrder)); }catch(e){}
+}
+function loadPlacedOrder(){
+  try{
+    const raw = localStorage.getItem(ORDER_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    placedOrder = (data && data.number) ? data : null;
+  }catch(e){ placedOrder = null; }
+}
+function clearPlacedOrder(){
+  placedOrder = null;
+  try{ localStorage.removeItem(ORDER_KEY); }catch(e){}
+}
+
 /* =====================================================================
    CHECKOUT — валидация остатков на клиенте + переход в Telegram
    с готовым сообщением. Реальная оплата и подтверждение заказа
    происходят вручную в переписке с продавцом — сайт ничего не списывает
    как "оплаченное", только резервирует остаток и формирует заявку.
    ===================================================================== */
-function handleCheckout(){
+async function handleCheckout(){
   const errEl = document.getElementById('checkoutError');
   const fail = (msg, focusId)=>{
     errEl.textContent = msg;
@@ -2251,51 +2294,91 @@ function handleCheckout(){
   }
   errEl.classList.remove('show');
 
-  const lines = ['Заказ с сайта SPOTTER:'];
-  cart.forEach(item=>{
-    const p = findProduct(item.productId);
-    lines.push(`— ${p.name}, размер ${item.size}, ${item.qty} шт., ${formatPrice(p.price*item.qty)}`);
-  });
-  lines.push(`Итого: ${formatPrice(cartTotalPrice())}`);
-  if (surveyResult && surveyResult.discount){
-    lines.push(`Скидка за опрос: −${formatPrice(surveyResult.discount)}`);
-    lines.push(`С учётом скидки: ${formatPrice(Math.max(cartTotalPrice() - surveyResult.discount, 0))}`);
+  // Номер приходит из таблицы, а туда надо сходить по сети. Кнопку на это
+  // время запираем: два нажатия подряд — это два номера и два заказа.
+  const btn = document.getElementById('checkoutBtn');
+  if (btn){
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Оформляю…';
   }
-  lines.push(`Формат получения: ${delivery}`);
-  if (destination) lines.push(`Куда: ${destination}`);
-  lines.push(`ФИО: ${name}`);
-  lines.push(`Телефон: ${formatPhone(phone)}`);
-  if (comment) lines.push(`Комментарий: ${comment}`);
-  // Ответы опроса едут тем же сообщением, что и заказ: иначе продавцу
-  // пришлось бы сводить два разных сообщения от одного человека.
-  const text = lines.join('\n') + (surveyResult ? '\n\n' + surveyResultText() : '');
 
-  // Ссылка только подставляет черновик — отправляет его человек руками.
-  // Поэтому корзину здесь не трогаем: она очистится, когда покупатель
-  // подтвердит отправку. Остатки не списываем вообще — сайт не может знать,
-  // дошёл ли заказ и подтверждён ли он продавцом.
+  const items = cart.map(i=>{
+    const p = findProduct(i.productId);
+    return { id: i.productId, name: p ? p.name : i.productId, size: i.size, qty: i.qty,
+             price: p ? p.price : 0 };
+  });
+  const total = cartTotalPrice();
+  const discount = (surveyResult && surveyResult.discount) || 0;
+  const orderId = surveyResult && surveyResult.id ? surveyResult.id : ('O' + Date.now().toString(36));
+
   // Заказ уезжает в ту же таблицу и той же строкой, что и ответы опроса
   // (сходятся по id). Так видно не только что люди отвечали, но и кто из
-  // них в итоге заказал. Без опроса строка просто будет без ответов.
-  sendToSheet({
+  // них в итоге заказал. Ответом она возвращает номер заказа и номера вещей.
+  const res = await sendToSheet({
     type: 'order',
-    id: surveyResult && surveyResult.id ? surveyResult.id : ('O' + Date.now().toString(36)),
+    id: orderId,
     ts: new Date().toISOString(),
     name,
     phone: formatPhone(phone),
     delivery,
     destination,
     comment,
-    items: cart.map(i=>{
-      const p = findProduct(i.productId);
-      return `${p ? p.name : i.productId} / ${i.size} / ${i.qty} шт.`;
-    }).join('; '),
-    total: cartTotalPrice(),
-    discount: (surveyResult && surveyResult.discount) || 0
+    items,
+    total,
+    discount
   });
 
-  checkoutOrder = { text, url: `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}` };
+  // Таблица не ответила (не настроена, нет сети) — заказ всё равно должен
+  // оформиться: номер тогда местный, по дате и случайному хвосту. Он так же
+  // годится, чтобы найти заказ в переписке, просто не сквозной.
+  const number = (res && res.order) ? res.order : localOrderNumber();
+  const unitsById = {};
+  if (res && Array.isArray(res.units)){
+    res.units.forEach(u=>{ unitsById[(u.id || '') + '|' + (u.size || '')] = u.numbers || []; });
+  }
+  const lines = items.map(it=>({
+    name: it.name, size: it.size, qty: it.qty,
+    numbers: unitsById[it.id + '|' + it.size] || []
+  }));
+
+  const msg = [`Заказ ${number} с сайта SPOTTER:`];
+  lines.forEach(l=>{
+    const nums = l.numbers.length ? `, ${l.numbers.map(n=>'№'+n).join(', ')}` : '';
+    const p = items.find(i=>i.name === l.name && i.size === l.size);
+    msg.push(`— ${l.name}, размер ${l.size}, ${l.qty} шт.${nums}, ${formatPrice((p ? p.price : 0) * l.qty)}`);
+  });
+  msg.push(`Итого: ${formatPrice(total)}`);
+  if (discount){
+    msg.push(`Скидка за опрос: −${formatPrice(discount)}`);
+    msg.push(`С учётом скидки: ${formatPrice(Math.max(total - discount, 0))}`);
+  }
+  msg.push(`Формат получения: ${delivery}`);
+  if (destination) msg.push(`Куда: ${destination}`);
+  msg.push(`ФИО: ${name}`);
+  msg.push(`Телефон: ${formatPhone(phone)}`);
+  if (comment) msg.push(`Комментарий: ${comment}`);
+  // Ответы опроса едут тем же сообщением, что и заказ: иначе продавцу
+  // пришлось бы сводить два разных сообщения от одного человека.
+  const text = msg.join('\n') + (surveyResult ? '\n\n' + surveyResultText() : '');
+
+  placedOrder = {
+    number, text, lines, total, discount,
+    at: new Date().toISOString(),
+    url: `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}`
+  };
+  savePlacedOrder();
+
+  // Корзину чистим сразу, как только заказ получил номер. Раньше она жила
+  // до подтверждения «я отправил», и это был прямой путь к дублю: человек
+  // возвращался, видел свои вещи на месте и оформлял их второй раз.
+  // Состав никуда не делся — он в экране заказа и в тексте сообщения.
+  cart = [];
+  saveCart();
+  clearSurveyResult(); // скидка уже учтена в этом заказе
+  renderCartCount();
   renderDrawer();
+  render();
 }
 
 // Копирование заказа — страховка на случай, если t.me не открывается
@@ -2327,6 +2410,7 @@ function init(){
   document.getElementById('year').textContent = new Date().getFullYear();
   loadCart();
   loadSurveyResult();
+  loadPlacedOrder();
   renderCartCount();
   applyRoute(); // разбирает адрес и рисует нужный раздел
   refreshViews(); // не ждём: страница уже нарисована со снимком просмотров
