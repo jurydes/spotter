@@ -32,6 +32,9 @@ function initAnalytics(){
   if (!id) return;
 
   // Официальный загрузчик Метрики. Ничего не считает до ym(...,'init').
+  // Номер счётчика стоит и в адресе скрипта — так Метрика подтягивает
+  // настройки сразу, не дожидаясь init.
+  const src = 'https://mc.yandex.ru/metrika/tag.js?id=' + id;
   (function(m,e,t,r,i,k,a){
     m[i] = m[i] || function(){ (m[i].a = m[i].a || []).push(arguments); };
     m[i].l = 1 * new Date();
@@ -40,17 +43,21 @@ function initAnalytics(){
     }
     k = e.createElement(t); a = e.getElementsByTagName(t)[0];
     k.async = 1; k.src = r; a.parentNode.insertBefore(k, a);
-  })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
+  })(window, document, 'script', src, 'ym');
 
   window.ym(id, 'init', {
     // defer — не отправлять первый просмотр автоматически: адрес на этот
     // момент ещё не разобран, и в отчётах был бы «/» вместо раздела.
-    // Первый hit шлём сами, из sendHit после applyRoute.
+    // Первый hit шлём сами, из sendHit после applyRoute. Это единственное
+    // расхождение со стандартным фрагментом Метрики, и оно намеренное:
+    // сайт одностраничный.
     defer: true,
-    clickmap: true,          // карта кликов
-    trackLinks: true,        // клики по внешним ссылкам (YouTube, Telegram)
-    accurateTrackBounce: true, // отказ считать только если человек ушёл сразу
-    webvisor: true           // запись сеансов
+    clickmap: true,            // карта кликов
+    trackLinks: true,          // клики по внешним ссылкам (YouTube, Telegram)
+    accurateTrackBounce: true, // отказ считать, только если человек ушёл сразу
+    webvisor: true,            // запись сеансов
+    ecommerce: 'dataLayer'     // задел на товарные отчёты; пока в dataLayer
+                               // ничего не кладём, отчёт просто пустует
   });
   metrikaReady = true;
 }
