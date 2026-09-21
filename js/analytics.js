@@ -63,9 +63,17 @@ function initAnalytics(){
 }
 
 // Просмотр раздела. Вызывается на каждом переходе, включая самый первый.
+//
+// Один адрес — один просмотр. applyRoute на старте отрабатывает дважды:
+// сначала рисует скелет, потом — пришедшие data/*.json. Адрес при этом
+// не меняется, и без этой проверки каждый заход считался бы за два: в
+// отчётах вдвое больше просмотров и заниженный отказ.
+let lastHitHref = null;
 function sendHit(){
   const id = metrikaId();
   if (!id || !window.ym) return;
+  if (lastHitHref === location.href) return;
+  lastHitHref = location.href;
   try{
     window.ym(id, 'hit', location.href, { title: document.title });
   }catch(e){ /* аналитика никогда не должна мешать сайту */ }

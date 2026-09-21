@@ -251,25 +251,47 @@ async function refreshViews(){
    CONFIG.episodes / CONFIG.merch выше — запасной снимок, зашитый в код,
    как и с просмотрами. Настоящий источник — data/episodes.json и
    data/merch.json: их правит Decap CMS (/admin) и коммитит прямо в
-   репозиторий. При заходе на сайт пробуем подгрузить эти файлы и, если
-   получилось, подменяем ими CONFIG.episodes/merch и перерисовываем.
-   Любая ошибка (файла нет, сеть недоступна, открыли через file://) —
-   молча остаёмся на снимке из config.js.
+   репозиторий. При заходе на сайт подгружаем эти файлы и рисуем разделы
+   уже по ним.
+
+   Снимок — аварийный запас, а не то, что показывают первым. Раньше он
+   рисовался сразу, а через ~100 мс подменялся живыми данными, и посетитель
+   успевал увидеть устаревшее: старое фото товара, старый остаток тиража.
+   Тем самым «25-м кадром». Снимок устаревает неизбежно — витрину правят
+   из редактора, а config.js при этом не меняется, — поэтому лечится не
+   синхронизацией снимка, а порядком: пока json не ответил, на месте
+   карточек стоят пустые рамки того же размера (renderLoadingTab).
+
+   Снимок включается, только если json не пришёл совсем: нет файла,
+   нет сети, открыли через file://.
    ===================================================================== */
 const EPISODES_JSON_URL = 'data/episodes.json';
 const MERCH_JSON_URL = 'data/merch.json';
+// Потолок ожидания. Не «сколько ждать быстрый ответ» (быстрый приходит за
+// свои 100 мс), а граница между «медленно» и «не ответили»: после неё
+// честнее показать снимок, чем держать скелет бесконечно.
+const CONTENT_TIMEOUT_MS = 6000;
+
+// 'loading' — данных ещё нет, разделы рисуются скелетом;
+// 'live' — пришли из data/*.json; 'snapshot' — не пришли, живём на config.js.
+let contentSource = 'loading';
+function contentReady(){ return contentSource !== 'loading'; }
 
 // Файл — объект с одним ключом-массивом (а не голый массив в корне): так его
 // понимает и Decap CMS (список-виджет как единственное поле файла), и fetch здесь.
 async function fetchJsonList(url, key){
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(()=>ctrl.abort(), CONTENT_TIMEOUT_MS) : null;
   try{
-    const res = await fetch(url, { cache: 'no-cache' });
+    const res = await fetch(url, { cache: 'no-cache', signal: ctrl ? ctrl.signal : undefined });
     if (!res.ok) return null;
     const data = await res.json();
     const list = data && data[key];
     return Array.isArray(list) && list.length ? list : null;
   }catch(e){
-    return null;                           // локальный просмотр через file:// или нет сети
+    return null;                           // локальный просмотр через file://, нет сети, таймаут
+  }finally{
+    if (timer) clearTimeout(timer);
   }
 }
 async function loadContentData(){
@@ -277,9 +299,14 @@ async function loadContentData(){
     fetchJsonList(EPISODES_JSON_URL, 'episodes'),
     fetchJsonList(MERCH_JSON_URL, 'merch')
   ]);
-  if (!episodes && !merch) return;
   if (episodes) CONFIG.episodes = episodes;
   if (merch) CONFIG.merch = merch;
+  contentSource = (episodes || merch) ? 'live' : 'snapshot';
+  // Корзину на старте отфильтровали по снимку — товара, добавленного в
+  // редакторе после последнего обновления config.js, там ещё нет, и позиция
+  // молча выпала бы. Перечитываем из localStorage уже по живому каталогу.
+  loadCart();
+  renderCartCount();
   applyRoute();
 }
 
@@ -581,10 +608,13 @@ function applyRoute(){
   // hashchange для Метрики не переход: страница-то не перезагружалась.
   if (typeof sendHit === 'function') sendHit();
 
-  // Товар: карточка — часть адреса, поэтому «назад» её закрывает
-  if (route.product){
+  // Товар: карточка — часть адреса, поэтому «назад» её закрывает.
+  // Пока каталог не загружен, карточку не открываем: товар нашёлся бы в
+  // снимке, и в окне мелькнули бы его старые фото — ровно то, от чего
+  // уходим. Придут данные — applyRoute вызовется ещё раз и откроет.
+  if (route.product && contentReady()){
     if (!modalProduct || modalProduct.id !== route.product) openProduct(route.product, true);
-  } else if (modalProduct){
+  } else if (modalProduct && !route.product){
     closeProduct(true);
   }
 
@@ -1028,9 +1058,76 @@ function renderMerch(){
 /* =====================================================================
    MAIN RENDER
    ===================================================================== */
+/* Что стоит на месте раздела, пока грузятся data/*.json.
+
+   Не крутилка: крутилка ничего не говорит о будущей раскладке, и когда
+   приходят данные, страница прыгает. Здесь — рамки ровно тех размеров,
+   что у настоящих карточек, потому что классы взяты у них же: пропорции
+   и сетка совпадают сами, без дублирования размеров в CSS.
+
+   Числа карточек (3 и 4) — сколько помещается на первый экран; точное
+   количество всё равно неизвестно, пока не пришёл json. */
+function skelPhoto(){
+  return `<div class="ph-photo viewfinder">
+    <span class="vf-corner vf-tl"></span><span class="vf-corner vf-tr"></span>
+    <span class="vf-corner vf-bl"></span><span class="vf-corner vf-br"></span>
+  </div>`;
+}
+function skelCards(count, cls){
+  return Array.from({ length: count }, ()=>`
+    <div class="${cls} skel">
+      ${skelPhoto()}
+      <div class="skel-body">
+        <span class="skel-line tall" style="width:72%"></span>
+        <span class="skel-line" style="width:44%"></span>
+      </div>
+    </div>`).join('');
+}
+function renderLoadingTab(){
+  if (currentTab === 'merch'){
+    return `
+    <section style="border-top:none;"><div class="wrap">
+      <div class="section-head"><h2>Мерч</h2></div>
+      <div class="merch-grid">${skelCards(3, 'merch-card')}</div>
+    </div></section>`;
+  }
+  if (currentTab === 'episodes' || currentTab === 'artist'){
+    return `
+    <section style="border-top:none;"><div class="wrap">
+      <div class="section-head"><h2>Выпуски</h2></div>
+      <div class="ep-grid">${skelCards(4, 'ep-card')}</div>
+    </div></section>`;
+  }
+  // Главная: первый экран — обложка выпуска и текст рядом с ней, ниже мерч.
+  // Строки повторяют состав настоящего блока (метка, заголовок, описание,
+  // состав, кнопка) — но точную высоту не воспроизводят: подогнать её нечем,
+  // пока неизвестно название выпуска. Кадр рядом на широком экране это и не
+  // заметит — там его ширину держит нижняя граница в 50% сетки, а не текст.
+  return `
+  <section class="hero" style="border-top:none;">
+    <div class="wrap hero-grid">
+      <div class="hero-text skel">
+        <span class="skel-line" style="width:38%"></span>
+        <span class="skel-line tall" style="width:92%"></span>
+        <span class="skel-line tall" style="width:61%"></span>
+        <span class="skel-line" style="width:80%"></span>
+        <span class="skel-line" style="width:47%"></span>
+        <span class="skel-line" style="width:66%"></span>
+        <span class="skel-btn"></span>
+      </div>
+      <div class="hero-photo viewfinder skel">${skelPhoto()}</div>
+    </div>
+  </section>
+  <section><div class="wrap">
+    <div class="section-head"><h2>Мерч</h2></div>
+    <div class="merch-grid">${skelCards(2, 'merch-card')}</div>
+  </div></section>`;
+}
+
 function render(){
   const app = document.getElementById('app');
-  if (currentTab === 'home') app.innerHTML = renderHome();
+  if (!contentReady()) app.innerHTML = renderLoadingTab();
+  else if (currentTab === 'home') app.innerHTML = renderHome();
   else if (currentTab === 'episodes') app.innerHTML = renderEpisodes();
   else if (currentTab === 'merch') app.innerHTML = renderMerch();
   else if (currentTab === 'artist') app.innerHTML = renderArtist(route.artist);

@@ -153,6 +153,28 @@
   .merch-card:hover .ph-photo img,
   .hero-photo:hover .ph-photo img{transform:scale(1.035);}
 
+  /* ================= СКЕЛЕТ ЗАГРУЗКИ =================
+     Выпуски и мерч приходят из data/*.json уже после html. До их прихода
+     на месте карточек стоят эти рамки: тот же размер, та же сетка —
+     страница не прыгает и не показывает устаревший снимок из config.js.
+     Разметку строит renderLoadingTab() в app.js, на тех же классах
+     (.merch-card, .ep-card, .hero-photo), поэтому пропорции здесь только
+     дописываются там, где у реальной карточки их задаёт вложенный блок. */
+  .skel{pointer-events:none;} /* рамка не карточка: ни ховера, ни курсора-руки */
+  .ep-card.skel .ph-photo{aspect-ratio:16/9;}   /* у карточки выпуска это .ep-cover */
+  .hero-photo.skel .ph-photo{width:100%;height:100%;}
+  .skel-body{padding:18px;display:flex;flex-direction:column;gap:10px;}
+  .skel-line{display:block;height:13px;background:var(--surface-2);}
+  .skel-line.tall{height:26px;}
+  .skel-btn{display:block;height:46px;width:186px;background:var(--surface-2);margin-top:8px;}
+  .hero-text.skel{display:flex;flex-direction:column;gap:14px;}
+  /* Едва заметное дыхание — знак, что страница грузится, а не сломалась.
+     Тем, кто просил убрать анимацию в системе, всё стоит неподвижно. */
+  @media (prefers-reduced-motion:no-preference){
+    .skel-line{animation:skel-pulse 1.5s ease-in-out infinite;}
+  }
+  @keyframes skel-pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
   /* Таймкод — реальная длительность выпуска, как в плеере */
   .tc{
     position:absolute;top:8px;right:8px;z-index:2;
