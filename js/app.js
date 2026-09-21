@@ -272,10 +272,38 @@ const MERCH_JSON_URL = 'data/merch.json';
 // честнее показать снимок, чем держать скелет бесконечно.
 const CONTENT_TIMEOUT_MS = 6000;
 
-// 'loading' — данных ещё нет, разделы рисуются скелетом;
-// 'live' — пришли из data/*.json; 'snapshot' — не пришли, живём на config.js.
+/* Через сколько показывать рамки-заглушки.
+
+   Не сразу: замеры живого сайта дают на data/*.json 70–120 мс — быстрее,
+   чем грузится сам index.html. На таком интервале заглушку не успеваешь
+   опознать, она просто мигает чёрными плашками, и это заметнее того, что
+   она лечила. Поэтому первые 400 мс раздел пустой (высоту держит #app:empty
+   в стилях, чтобы подвал не прыгал), и обычный посетитель видит один кадр:
+   сразу готовую страницу.
+
+   А вот если ответ задержался — мобильный интернет, холодный CDN, — рамки
+   уместны: видно, что страница грузится, а не сломалась. */
+const SKELETON_DELAY_MS = 400;
+let skeletonTimer = null;
+let showSkeleton = false;
+
+// 'loading' — данных ещё нет; 'live' — пришли из data/*.json;
+// 'snapshot' — не пришли, живём на снимке из config.js.
 let contentSource = 'loading';
 function contentReady(){ return contentSource !== 'loading'; }
+
+function armSkeleton(){
+  skeletonTimer = setTimeout(()=>{
+    skeletonTimer = null;
+    if (contentReady()) return;
+    showSkeleton = true;
+    render();
+  }, SKELETON_DELAY_MS);
+}
+function disarmSkeleton(){
+  if (skeletonTimer){ clearTimeout(skeletonTimer); skeletonTimer = null; }
+  showSkeleton = false;
+}
 
 // Файл — объект с одним ключом-массивом (а не голый массив в корне): так его
 // понимает и Decap CMS (список-виджет как единственное поле файла), и fetch здесь.
@@ -302,6 +330,7 @@ async function loadContentData(){
   if (episodes) CONFIG.episodes = episodes;
   if (merch) CONFIG.merch = merch;
   contentSource = (episodes || merch) ? 'live' : 'snapshot';
+  disarmSkeleton();
   // Корзину на старте отфильтровали по снимку — товара, добавленного в
   // редакторе после последнего обновления config.js, там ещё нет, и позиция
   // молча выпала бы. Перечитываем из localStorage уже по живому каталогу.
@@ -1126,7 +1155,7 @@ function renderLoadingTab(){
 
 function render(){
   const app = document.getElementById('app');
-  if (!contentReady()) app.innerHTML = renderLoadingTab();
+  if (!contentReady()) app.innerHTML = showSkeleton ? renderLoadingTab() : '';
   else if (currentTab === 'home') app.innerHTML = renderHome();
   else if (currentTab === 'episodes') app.innerHTML = renderEpisodes();
   else if (currentTab === 'merch') app.innerHTML = renderMerch();
@@ -2844,6 +2873,7 @@ function init(){
   loadSurveyResult();
   loadPlacedOrder();
   renderCartCount();
+  armSkeleton(); // рамки-заглушки — только если данные задержатся дольше порога
   applyRoute(); // разбирает адрес и рисует нужный раздел
   refreshViews(); // не ждём: страница уже нарисована со снимком просмотров
   loadContentData(); // не ждём: то же самое, но для выпусков и мерча из админки
