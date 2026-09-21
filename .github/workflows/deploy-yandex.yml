@@ -33,7 +33,7 @@ jobs:
       - name: Собрать css/js с версией в имени и переписать ссылки
         run: |
           V=${GITHUB_SHA::7}
-          for f in css/fonts.css css/styles.css js/config.js js/app.js; do
+          for f in css/fonts.css css/styles.css js/config.js js/analytics.js js/app.js; do
             cp "$f" "${f%.*}.$V.${f##*.}"
           done
           sed -i -E "s|(href=\"css/[a-z]+)\.css\"|\1.$V.css\"|g; s|(src=\"js/[a-z]+)\.js\"|\1.$V.js\"|g" index.html
@@ -81,7 +81,7 @@ jobs:
               --cache-control "public, max-age=31536000, immutable" \
               --content-type "text/css; charset=utf-8"
           done
-          for f in js/config.$V.js js/app.$V.js; do
+          for f in js/config.$V.js js/analytics.$V.js js/app.$V.js; do
             aws s3 cp "$f" "s3://spotterlive/$f" \
               --endpoint-url=https://storage.yandexcloud.net \
               --cache-control "public, max-age=31536000, immutable" \
@@ -101,7 +101,7 @@ jobs:
               --cache-control "public, max-age=300" \
               --content-type "text/css; charset=utf-8"
           done
-          for f in js/config.js js/app.js; do
+          for f in js/config.js js/analytics.js js/app.js; do
             aws s3 cp "$f" "s3://spotterlive/$f" \
               --endpoint-url=https://storage.yandexcloud.net \
               --cache-control "public, max-age=300" \

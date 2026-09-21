@@ -509,6 +509,7 @@ function addToCart(productId, size, qty){
   cartNotice = ''; // объяснение прошлой правки корзины больше не актуально
   saveCart();
   renderCartCount();
+  goal('cart_add', { size, qty: add });
   return add === qty;
 }
 function removeFromCart(productId, size){
@@ -576,6 +577,9 @@ function applyRoute(){
     b.classList.toggle('active', b.dataset.tab === navTab);
   });
   render();
+  // Переход между разделами — отдельный просмотр в аналитике. Сам по себе
+  // hashchange для Метрики не переход: страница-то не перезагружалась.
+  if (typeof sendHit === 'function') sendHit();
 
   // Товар: карточка — часть адреса, поэтому «назад» её закрывает
   if (route.product){
@@ -1150,6 +1154,12 @@ function bindDynamicHandlers(){
   document.querySelectorAll('[data-random-episode]').forEach(el=>{
     el.addEventListener('click', openRandomEpisode);
   });
+  // Уход на YouTube — конец воронки «выпуски»: ради этого сайт и живёт.
+  // Ловим на всплытии, одним обработчиком на весь список, а не вешаем
+  // по штуке на каждую ссылку при каждой перерисовке.
+  document.querySelectorAll('a[href*="youtube.com"], a[href*="youtu.be"]').forEach(el=>{
+    el.addEventListener('click', ()=> goal('episode_open', { url: el.href }));
+  });
   document.querySelectorAll('[data-share]').forEach(el=>{
     el.addEventListener('click', ()=>shareEpisode(el.dataset.share, el));
   });
@@ -1171,6 +1181,7 @@ function openRandomEpisode(){
 async function shareEpisode(slug, btn){
   const ep = findEpisodeBySlug(slug);
   if (!ep) return;
+  goal('share', { episode: ep.title || slug });
   // Делимся сразу ссылкой на YouTube, а не на страницу сайта — так человек,
   // получивший ссылку, попадает прямо на видео, а не на промежуточный экран.
   // Если ссылки на ролик ещё нет (youtubeUrl не заполнен), делимся адресом
@@ -1212,6 +1223,7 @@ function openProduct(id, fromRoute){
   modalQty = 1;
   modalPhoto = 0;
   modalMsg = '';
+  goal('product_open', { product: modalProduct.name });
   renderModal();
   document.getElementById('productOverlay').classList.add('open');
   lockScroll(true);
@@ -1412,6 +1424,7 @@ function openSurvey(productId, presetSize){
   surveyMsg = '';
   surveyError = '';
   surveyId = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  goal('survey_start');
   // Новое прохождение — новый id и новая строка в таблице. Без сброса
   // второй опрос за сессию (закрыл, передумал, прошёл заново) молча
   // никуда не уезжал.
@@ -1614,7 +1627,7 @@ function renderSurvey(){
     surveyStep++;
     // Дошли до конца — ответы уезжают в таблицу сразу, не дожидаясь заказа:
     // человек может закрыть окно и не купить ничего, ответы всё равно ценны.
-    if (surveyStep >= total) sendSurveyToSheet();
+    if (surveyStep >= total){ sendSurveyToSheet(); goal('survey_done'); }
     renderSurvey();
   });
 }
@@ -2542,6 +2555,7 @@ async function handleCheckout(){
   const telegram = telegramDisplay(checkoutForm.telegram);
 
   if (cart.length === 0) return;
+  goal('checkout_start', { total: cartTotalPrice() });
 
   // Проверка по актуальному каталогу: тираж мог поменять продавец, пока
   // товар лежал в корзине. Лимит общий на товар, поэтому идём по товарам
@@ -2683,6 +2697,8 @@ async function handleCheckout(){
     url: `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(text)}`
   };
   savePlacedOrder();
+  // Сумма в цели — чтобы в отчётах была выручка, а не только штуки
+  goal('order_done', { order: number, total, delivered });
 
   // Корзину чистим сразу, как только заказ получил номер. Раньше она жила
   // до подтверждения «я отправил», и это был прямой путь к дублю: человек
@@ -2723,6 +2739,9 @@ async function copyOrder(text){
    INIT
    ===================================================================== */
 function init(){
+  // Аналитику поднимаем первой: счётчик должен успеть встать до того, как
+  // applyRoute отправит первый просмотр раздела.
+  if (typeof initAnalytics === 'function') initAnalytics();
   document.getElementById('year').textContent = new Date().getFullYear();
   loadCart();
   loadSurveyResult();
