@@ -19,7 +19,7 @@
         "assets/merch/rewinding-riddims.jpg"
       ],
       "popular": true,
-      "active": false,
+      "active": true,
       "id": "rewinding-riddims",
       "description": "Оверсайз-футболка, белая. Принт спереди: рукопожатие и логотип REWINDING RIDDIMS.",
       "category": "Футболки"
@@ -48,7 +48,7 @@
         "assets/merch/spotter-blue-5.jpg"
       ],
       "popular": false,
-      "active": false,
+      "active": true,
       "id": "spotter-blue",
       "description": "Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в синем градиенте.",
       "category": "Футболки"
@@ -75,7 +75,7 @@
         "assets/merch/spotter-pink-3.jpg"
       ],
       "popular": false,
-      "active": false,
+      "active": true,
       "id": "spotter-logo-pink",
       "description": "Футболка, белая. Принт спереди: логотип SPOTTER в розовом градиенте.",
       "category": "Футболки"
@@ -99,7 +99,7 @@
         "assets/merch/spotter-green.jpg"
       ],
       "popular": false,
-      "active": false,
+      "active": true,
       "id": "spotter-green",
       "description": "Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в зелёном градиенте.",
       "category": "Футболки"
@@ -123,7 +123,7 @@
         "assets/merch/rewinding-business-black.jpg"
       ],
       "popular": false,
-      "active": false,
+      "active": true,
       "id": "rewinding-business-black",
       "description": "Футболка, чёрная. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.",
       "category": "Футболки"
@@ -147,7 +147,7 @@
         "assets/merch/rewinding-business-white.jpg"
       ],
       "popular": false,
-      "active": false,
+      "active": true,
       "id": "rewinding-business-white",
       "description": "Футболка, белая. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.",
       "category": "Футболки"
@@ -171,7 +171,7 @@
         "assets/merch/spotter-logo-white.jpg"
       ],
       "popular": false,
-      "active": false,
+      "active": true,
       "id": "spotter-logo-white",
       "description": "Футболка, белая. Принт спереди: чёрный логотип SPOTTER.",
       "category": "Футболки"
