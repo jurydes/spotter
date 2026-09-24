@@ -1004,10 +1004,25 @@ function buyButtonHtml(product){
   // поэтому кнопка ведёт в карточку товара, где есть размеры и количество.
   return `<button class="btn buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
 }
+/* Выключатель опроса. Сам опрос никуда не делся — весь код, вопросы,
+   выгрузка в таблицу и скидка на месте; выключается только то, через что
+   в него попадают: кнопка на карточке и блок с предложением скидки.
+   Вернуть — поставить surveyEnabled: true в config.js.
+
+   Проверка на !== false, а не на true: если посетителю досталась старая
+   версия config.js без этого поля, опрос для него останется включённым,
+   как был. Выключает только явное false. */
+function surveyEnabled(){
+  return CONFIG.surveyEnabled !== false;
+}
 // Размер скидки за опрос. Через функцию, а не напрямую: config.js у части
 // посетителей может быть старым, без этого поля — тогда 0, и всё, что
 // связано со скидкой, просто не показывается.
+//
+// При выключенном опросе скидка тоже обнуляется — иначе на карточке висела
+// бы плашка «−1 700 за опрос» без единого способа этот опрос пройти.
 function surveyDiscount(){
+  if (!surveyEnabled()) return 0;
   return Number(CONFIG.surveyDiscount) || 0;
 }
 function priceAfterSurvey(product){
@@ -1033,6 +1048,7 @@ function priceBlockHtml(p, note){
 }
 // Сумму скидки на кнопке не повторяем: она уже названа плашкой у цены.
 function surveyButtonHtml(product, cls){
+  if (!surveyEnabled()) return '';
   return `<button class="btn-outline ${cls}" data-open-survey="${product.id}">Пройти опрос</button>`;
 }
 // Общая карточка товара — используется и в сетке "Мерч", и на главной,
