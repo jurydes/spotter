@@ -217,6 +217,25 @@
       "cover": "assets/episodes/standalone-redo-s1.jpg",
       "title": "SPOTTER - REDO /s1",
       "description": "Самый первый выпуск SPOTTER, сделанный задолго до создания формата SPOTTER LIVE, в котором REDO исполняет трек PANDORA BLOCK."
+    },
+    {
+      "title": "GANGSBURG, JOLLO, YUMA, BLABLA, JEFSTROKE x DJ CHAPO",
+      "artists": [
+        "GANGSBURG",
+        "JOLLO",
+        "YUMA",
+        "BLABLA",
+        "JEFSTROKE",
+        "DJ CHAPO"
+      ],
+      "dj": "DJ CHAPO",
+      "youtubeUrl": "https://youtu.be/bAYyKvqwrO8?si=O3xaFkm1vZYa8GLt",
+      "duration": "15:04",
+      "cover": "assets/episodes/photo-muij7dzu.jpg",
+      "description": "GANGSBURG - Ветеран хип-хопа, раннее известный как Dom1no\nJOLLO - Мультифункциональный артист, мастерски владеющий как роком, так и рэпом, граймом\nYUMA - Яркий представитель русской Soundcloud сцены, впервые попробовавший себя на грайме \nBLABLA -  Представитель самой новой школы русских грайм мс \nJEFSTROKE - Грайм мс из Твери",
+      "chapter": 2,
+      "number": 8,
+      "standalone": false
     }
   ]
 }
