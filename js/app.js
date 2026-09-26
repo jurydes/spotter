@@ -65,6 +65,20 @@ function escapeHtml(str){
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   }[s]));
 }
+/* Свободный текст из редактора — описание выпуска, описание товара.
+   Там обычное многострочное поле, и перевод строки в нём человек ставит
+   осознанно: строка на участника, строка на состав ткани. В HTML переводы
+   строк схлопываются в пробел, и пять осмысленных строк склеивались в одну
+   простыню — так и случилось с составом CHAPTER II · EP.08.
+
+   Пустые строки между абзацами дают отступ побольше, одиночный перевод —
+   просто новую строку. Экранирование обязательно делать ДО подстановки
+   <br>, иначе введённый в поле тег станет разметкой. */
+function multilineText(raw){
+  return escapeHtml(String(raw || '').trim())
+    .replace(/(\r?\n){2,}/g, '</p><p>')
+    .replace(/\r?\n/g, '<br>');
+}
 function formatPrice(n){ return n.toLocaleString('ru-RU') + ' ₽'; }
 function toRoman(n){
   const map = [[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
@@ -108,9 +122,19 @@ function allArtists(){
   }));
   return list;
 }
-// Короткая подпись участника из ARTIST_BIOS. Нет в таблице — пустая строка.
+/* Короткая подпись участника. Нет подписи — пустая строка, и человек
+   уходит в строку «также» / «за пультом».
+
+   Сначала смотрим в data/artists.json (его правят из редактора), потом
+   в ARTIST_BIOS из config.js — тот же порядок, что у выпусков и мерча:
+   живой файл главнее, зашитая таблица остаётся запасом на случай, когда
+   файл не доехал. До появления artists.json подписи можно было добавить
+   только правкой кода, и новые имена оставались без них. */
+let liveArtistBios = null;
 function artistBio(name){
-  return ARTIST_BIOS[canonicalArtist(name)] || '';
+  const key = canonicalArtist(name);
+  if (liveArtistBios && liveArtistBios[key]) return liveArtistBios[key];
+  return ARTIST_BIOS[key] || '';
 }
 // Состав выпуска: имя + подпись, по строке на человека.
 // Раньше здесь был просто ряд имён через точку — теперь у каждого своя строка
@@ -267,6 +291,7 @@ async function refreshViews(){
    ===================================================================== */
 const EPISODES_JSON_URL = 'data/episodes.json';
 const MERCH_JSON_URL = 'data/merch.json';
+const ARTISTS_JSON_URL = 'data/artists.json';
 // Потолок ожидания. Не «сколько ждать быстрый ответ» (быстрый приходит за
 // свои 100 мс), а граница между «медленно» и «не ответили»: после неё
 // честнее показать снимок, чем держать скелет бесконечно.
@@ -323,12 +348,24 @@ async function fetchJsonList(url, key){
   }
 }
 async function loadContentData(){
-  const [episodes, merch] = await Promise.all([
+  const [episodes, merch, artists] = await Promise.all([
     fetchJsonList(EPISODES_JSON_URL, 'episodes'),
-    fetchJsonList(MERCH_JSON_URL, 'merch')
+    fetchJsonList(MERCH_JSON_URL, 'merch'),
+    fetchJsonList(ARTISTS_JSON_URL, 'artists')
   ]);
   if (episodes) CONFIG.episodes = episodes;
   if (merch) CONFIG.merch = merch;
+  // Подписи — список пар имя/подпись, а пользуются им по имени. Строки без
+  // имени пропускаем: в редакторе легко добавить пустую строку и забыть.
+  if (artists){
+    liveArtistBios = {};
+    artists.forEach(a => {
+      const name = a && String(a.name || '').trim();
+      if (name) liveArtistBios[name] = String(a.bio || '').trim();
+    });
+  }
+  // Готовность считаем по выпускам и мерчу: из них состоит страница.
+  // Подписи — дополнение к именам, без них раздел рисуется целиком.
   contentSource = (episodes || merch) ? 'live' : 'snapshot';
   disarmSkeleton();
   // Корзину на старте отфильтровали по снимку — товара, добавленного в
@@ -691,7 +728,7 @@ function renderHome(){
       <div class="hero-text">
         <div class="badge-rec"><span class="dot"></span> НОВЫЙ ВЫПУСК · ${latestBadge}</div>
         <h1>${escapeHtml(latest.title)}</h1>
-        ${latest.description ? `<p class="lead">${escapeHtml(latest.description)}</p>` : ''}
+        ${latest.description ? `<p class="lead">${multilineText(latest.description)}</p>` : ''}
         ${lineupBiosHtml(latest)}
         ${latest.youtubeUrl
           ? `<a class="btn" href="${latest.youtubeUrl}" target="_blank" rel="noopener">Смотреть выпуск</a>`
@@ -893,7 +930,7 @@ function episodeCardHtml(ep, showChapter){
       </div>
       <div class="ep-body">
         <h3>${escapeHtml(ep.title)}</h3>
-        ${ep.description ? `<p>${escapeHtml(ep.description)}</p>` : ''}
+        ${ep.description ? `<p>${multilineText(ep.description)}</p>` : ''}
         ${lineupBiosHtml(ep)}
         <div class="ep-actions">
           ${ep.youtubeUrl
@@ -1817,7 +1854,7 @@ function renderModal(){
     <div class="modal-info">
       <h2 id="modalTitle">${escapeHtml(p.name)}</h2>
       ${priceBlockHtml(p)}
-      <p class="desc">${escapeHtml(p.description)}</p>
+      <p class="desc">${multilineText(p.description)}</p>
       <div>
         <span class="field-label">Размер</span>
         <div class="size-row">${sizesHtml}</div>
