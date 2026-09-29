@@ -198,8 +198,17 @@ const VIEWS_CACHE_KEY = 'spotter-views-v1';
 const VIEWS_TTL_MS = 6 * 60 * 60 * 1000;
 let liveViews = {};
 
+/* Идентификатор ролика из ссылки. Форм у YouTube несколько, и раньше
+   здесь понималась только watch?v=… — а кнопка «Поделиться» на самом
+   YouTube даёт короткую youtu.be/bAYyKvqwrO8?si=… Такой выпуск молча
+   оставался без просмотров.
+
+   Хвост ?si=… отбрасывается сам: идентификатор ровно 11 символов,
+   дальше шаблон не смотрит. Те же формы разбирает tools/video_ids.py,
+   который собирает список для запроса к YouTube. */
+const VIDEO_ID_RE = /(?:[?&]v=|youtu\.be\/|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/;
 function videoIdOf(ep){
-  const m = /[?&]v=([\w-]{11})/.exec(ep.youtubeUrl || '');
+  const m = VIDEO_ID_RE.exec(ep.youtubeUrl || '');
   return m ? m[1] : null;
 }
 function viewsFor(ep){

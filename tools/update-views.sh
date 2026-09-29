@@ -31,10 +31,15 @@ CONFIG="$ROOT/js/config.js"
 KEY=$(sed -n 's/^[[:space:]]*youtubeApiKey[[:space:]]*=[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' "$ENV_FILE")
 [ -n "$KEY" ] || { echo "В .env нет строки youtubeApiKey=..."; exit 1; }
 
-# Идентификаторы роликов берём из самого конфига: добавили выпуск —
-# скрипт подхватит его сам, править ничего не нужно.
-IDS=$(grep -o 'watch?v=[A-Za-z0-9_-]\{11\}' "$CONFIG" | cut -d= -f2 | sort -u | paste -sd, -)
-[ -n "$IDS" ] || { echo "В config.js не нашлось ссылок на YouTube"; exit 1; }
+# Идентификаторы роликов — из data/episodes.json, то есть из того же файла,
+# который правит редактор. Раньше здесь читался js/config.js, а это всего
+# лишь запасной снимок в коде: выпуск, заведённый через редактор, в него
+# не попадает, и YouTube про него не спрашивали вовсе.
+#
+# Разбор вынесен в tools/video_ids.py — он же понимает короткие ссылки
+# youtu.be/…, которые даёт кнопка «Поделиться» на самом YouTube.
+IDS=$(python3 "$ROOT/tools/video_ids.py" "$ROOT")
+[ -n "$IDS" ] || { echo "Не нашлось ссылок на YouTube"; exit 1; }
 
 RESPONSE=$(curl -sS --max-time 30 \
   "https://www.googleapis.com/youtube/v3/videos?part=statistics&id=$IDS&key=$KEY") || {

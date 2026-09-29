@@ -34,10 +34,40 @@ if (!preg_match('/^\s*youtubeApiKey\s*=\s*"?([^"\r\n]+)"?/m', $env, $m)) {
 }
 $key = trim($m[1]);
 
-// --- идентификаторы роликов берём из самого конфига ---
-preg_match_all('/watch\?v=([A-Za-z0-9_-]{11})/', file_get_contents($config), $m);
-$ids = array_values(array_unique($m[1]));
-if (!$ids) fail("В config.js не нашлось ссылок на YouTube");
+/* --- идентификаторы роликов ---
+   Сначала data/episodes.json — тот же файл, который правит редактор.
+   js/config.js только запасной снимок: выпуск, заведённый через
+   редактор, в него не попадает, и просмотры по нему не собирались.
+   Формы ссылки — все, включая короткую youtu.be/… от кнопки
+   «Поделиться». Тот же разбор в tools/video_ids.py и в js/app.js. */
+$patterns = ['/[?&]v=([A-Za-z0-9_-]{11})/', '/youtu\.be\/([A-Za-z0-9_-]{11})/',
+             '/\/shorts\/([A-Za-z0-9_-]{11})/', '/\/embed\/([A-Za-z0-9_-]{11})/',
+             '/\/live\/([A-Za-z0-9_-]{11})/'];
+function videoId($url, $patterns) {
+    foreach ($patterns as $re) {
+        if (preg_match($re, (string)$url, $m)) return $m[1];
+    }
+    return null;
+}
+
+$ids = [];
+$live = $root . '/data/episodes.json';
+if (is_file($live)) {
+    $data = json_decode(file_get_contents($live), true);
+    foreach (($data['episodes'] ?? []) as $ep) {
+        $id = videoId($ep['youtubeUrl'] ?? '', $patterns);
+        if ($id) $ids[] = $id;
+    }
+}
+if (!$ids) {
+    $text = file_get_contents($config);
+    foreach ($patterns as $re) {
+        preg_match_all($re, $text, $m);
+        $ids = array_merge($ids, $m[1]);
+    }
+}
+$ids = array_values(array_unique($ids));
+if (!$ids) fail("Не нашлось ссылок на YouTube");
 
 // --- запрос (API принимает до 50 идентификаторов за раз) ---
 $views = [];

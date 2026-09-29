@@ -31,13 +31,42 @@ $envText = [System.IO.File]::ReadAllText($envPath, [System.Text.Encoding]::UTF8)
 $key = ([regex]::Match($envText, 'youtubeApiKey\s*=\s*"?([^"\r\n]+)"?')).Groups[1].Value.Trim()
 if (-not $key) { Fail "В .env нет строки youtubeApiKey=..." }
 
-# --- идентификаторы роликов берём из самого конфига,
-#     чтобы новые выпуски подхватывались без правки скрипта ---
-$config = [System.IO.File]::ReadAllText($configPath, [System.Text.Encoding]::UTF8)
-$ids = [regex]::Matches($config, 'youtubeUrl:\s*''https://www\.youtube\.com/watch\?v=([\w-]{11})') |
-       ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
-if ($ids.Count -eq 0) { Fail "В config.js не нашлось ни одной ссылки на YouTube" }
-Write-Host "Выпусков в конфиге: $($ids.Count)"
+# --- идентификаторы роликов ---
+#     Сначала data/episodes.json — тот же файл, который правит редактор.
+#     js/config.js только запасной снимок: выпуск, заведённый через
+#     редактор, туда не попадает, и просмотры по нему не собирались.
+#     Формы ссылки — все, включая короткую youtu.be/… от кнопки
+#     «Поделиться». Тот же разбор в tools/video_ids.py и в js/app.js.
+$patterns = @('[?&]v=([\w-]{11})', 'youtu\.be/([\w-]{11})', '/shorts/([\w-]{11})',
+              '/embed/([\w-]{11})', '/live/([\w-]{11})')
+function Get-VideoId($url) {
+  foreach ($re in $patterns) {
+    $m = [regex]::Match([string]$url, $re)
+    if ($m.Success) { return $m.Groups[1].Value }
+  }
+  return $null
+}
+
+$ids = @()
+$livePath = Join-Path (Split-Path $configPath -Parent | Split-Path -Parent) 'data/episodes.json'
+if (Test-Path $livePath) {
+  $live = Get-Content $livePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  foreach ($ep in $live.episodes) {
+    $id = Get-VideoId $ep.youtubeUrl
+    if ($id) { $ids += $id }
+  }
+  $source = 'data/episodes.json'
+}
+if ($ids.Count -eq 0) {
+  $config = [System.IO.File]::ReadAllText($configPath, [System.Text.Encoding]::UTF8)
+  foreach ($re in $patterns) {
+    $ids += [regex]::Matches($config, $re) | ForEach-Object { $_.Groups[1].Value }
+  }
+  $source = 'js/config.js (запасной снимок)'
+}
+$ids = $ids | Select-Object -Unique
+if ($ids.Count -eq 0) { Fail "Не нашлось ни одной ссылки на YouTube" }
+Write-Host "Роликов найдено: $($ids.Count) (источник: $source)"
 
 # --- запрос (API принимает до 50 идентификаторов за раз) ---
 $views = @{}
