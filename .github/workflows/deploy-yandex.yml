@@ -42,6 +42,25 @@ jobs:
           grep -q "js/app\.$V\.js" index.html || { echo "Ссылки в index.html не переписались"; exit 1; }
           grep -nE "css/|js/" index.html
 
+      # Страницы для поисковиков. Робот не исполняет js, а весь контент сайта
+      # рисует именно js — в исходном html блок <main> пустой, и индексировать
+      # было нечего. Скрипт вписывает туда готовый текст из data/*.json и
+      # заодно делает отдельные адреса /episodes/, /merch/, /episode/<слаг>/:
+      # всё, что живёт после решётки, поисковик за отдельную страницу не считает.
+      #
+      # Строго ПОСЛЕ шага с версиями: страницы собираются из уже поправленного
+      # index.html, поэтому ссылаются на те же css/js, что и главная.
+      #
+      # Падает — падает весь деплой, и на сайте остаётся предыдущая версия.
+      # Это намеренно: лучше не выложить ничего, чем выложить главную
+      # с поломанной разметкой.
+      - name: Собрать страницы для поисковиков, robots и sitemap
+        run: |
+          python3 build/prerender.py
+          test -s robots.txt || { echo "robots.txt не собрался"; exit 1; }
+          test -s sitemap.xml || { echo "sitemap.xml не собрался"; exit 1; }
+          grep -q "<main id=\"app\"><section" index.html || { echo "Предрендер не попал в index.html"; exit 1; }
+
       # /admin/ намеренно не заливаем: Decap CMS там работает только через
       # Netlify Identity/Git Gateway, на Yandex это просто нерабочая страница —
       # пусть на spotterlive.ru её вообще не будет (404), а не полурабочий обломок.
@@ -68,6 +87,12 @@ jobs:
             --exclude "index.html" \
             --exclude "data/*" \
             --exclude "assets/views.json" \
+            --exclude "build/*" \
+            --exclude "episodes/*" \
+            --exclude "merch/*" \
+            --exclude "episode/*" \
+            --exclude "robots.txt" \
+            --exclude "sitemap.xml" \
             --cache-control "public, max-age=86400"
 
       # Год кэша безопасен ровно потому, что в имени файла стоит версия:
@@ -161,3 +186,29 @@ jobs:
             --delete \
             --cache-control "no-cache" \
             --content-type "application/json; charset=utf-8"
+
+      # Страницы для поисковиков. Заливаются отдельно от общей синхронизации
+      # ради двух вещей: явной кодировки в content-type (иначе браузер может
+      # выбрать её сам, и кириллица поедет) и короткого кэша — содержимое
+      # меняется при каждой правке из редактора.
+      #
+      # Без --delete намеренно: если выпуск переименуют, его прежний адрес
+      # останется живым со старым текстом. Это лучше, чем отдавать 404 по
+      # ссылке, которая уже попала в выдачу и к людям в закладки.
+      - name: Залить страницы для поисковиков
+        run: |
+          for dir in episodes merch episode; do
+            [ -d "$dir" ] || continue
+            aws s3 sync "$dir" "s3://spotterlive/$dir" \
+              --endpoint-url=https://storage.yandexcloud.net \
+              --cache-control "no-cache" \
+              --content-type "text/html; charset=utf-8"
+          done
+          aws s3 cp robots.txt s3://spotterlive/robots.txt \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --cache-control "public, max-age=3600" \
+            --content-type "text/plain; charset=utf-8"
+          aws s3 cp sitemap.xml s3://spotterlive/sitemap.xml \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/xml; charset=utf-8"

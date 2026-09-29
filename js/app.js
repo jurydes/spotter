@@ -644,7 +644,30 @@ function renderCartCount(){
      #/episode/<глава-номер>  выпуски с подсветкой конкретного (ссылка «поделиться»)
      #/product/<id>           мерч с открытой карточкой товара
    ===================================================================== */
+/* Адрес без решётки — это статическая страница из предрендера:
+   /episodes/, /merch/, /episode/<слаг>/. Их собирает build/prerender.py
+   ради поисковиков: всё, что после решётки, робот за отдельную страницу
+   не считает, поэтому у сайта в индексе была одна страница вместо тридцати.
+
+   Человек, пришедший из поиска на такой адрес, должен увидеть тот раздел,
+   что был в выдаче, а не главную — этим и занимается функция.
+   Ничего не совпало (обычная главная, локальный просмотр, file://) —
+   возвращаем null, и дальше всё работает по решётке, как раньше. */
+function routeFromPath(){
+  const parts = location.pathname.split('/').filter(Boolean);
+  if (!parts.length) return null;
+  const head = parts[0], tail = parts[1] ? decodeURIComponent(parts[1]) : '';
+  if (head === 'episodes') return { tab:'episodes' };
+  if (head === 'merch') return { tab:'merch' };
+  if (head === 'episode' && tail) return { tab:'episodes', episode: tail };
+  if (head === 'artist' && tail) return { tab:'artist', artist: tail };
+  return null;
+}
 function parseRoute(){
+  if (!location.hash){
+    const byPath = routeFromPath();
+    if (byPath) return byPath;
+  }
   const raw = (location.hash || '').replace(/^#\/?/, '');
   const [head, tail] = [raw.split('/')[0] || 'home', raw.split('/').slice(1).join('/')];
   switch (head){
@@ -657,6 +680,11 @@ function parseRoute(){
   }
 }
 function navigate(hash){
+  // Со статической страницы из предрендера уходим на главную целиком:
+  // иначе к её адресу просто дописалась бы решётка и получилось бы
+  // /episode/ch2-ep08/#/merch — рабочий, но уродливый адрес, да ещё и
+  // лишний дубль той же страницы для поисковика.
+  if (routeFromPath()){ location.href = '/' + hash; return; }
   if (location.hash === hash) applyRoute();
   else location.hash = hash;      // hashchange сам вызовет applyRoute
 }
