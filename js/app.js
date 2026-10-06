@@ -530,7 +530,11 @@ function availableFor(productId){
   const p = findProduct(productId);
   if (!p) return 0;
   const taken = reservedStock[productId] || 0; // резерв по товару, не по размеру
-  return Math.max(editionLeft(p) - taken - qtyInCartForProduct(productId), 0);
+  // Товар без тиража: остаток покупателю не показывается, поэтому и упираться
+  // в него он не должен — иначе кнопка молча перестаёт работать без всякого
+  // объяснения. Ограничение только техническое, на размер одного заказа.
+  const limit = usesEdition(p) ? editionLeft(p) : ORDER_MAX;
+  return Math.max(limit - taken - qtyInCartForProduct(productId), 0);
 }
 // Потолок для конкретного размера: то, что уже выбрано в нём, плюс свободный
 // остаток тиража. Отдельного лимита на размер больше нет.
@@ -750,12 +754,19 @@ function renderHome(){
   const maxChapter = Math.max(...CONFIG.episodes.filter(e => e.chapter != null).map(e => e.chapter));
   const latestPool = numbered.filter(e => e.chapter === maxChapter);
   const latest = [...latestPool].sort((a,b)=>b.number-a.number)[0] || numbered[0] || CONFIG.episodes[0];
+  /* Что из мерча попадает на главную — решают два флажка в редакторе,
+     «Новое» и «Популярное», а не порядок товаров в списке.
+
+     Раньше новинкой считался последний добавленный товар. Это работало,
+     пока список правили руками, но стоит переставить карточки местами в
+     редакторе — и на главную выезжает не то, что хотели, без всякого
+     предупреждения. Флажок говорит прямо.
+
+     Ничего не отмечено — показываем первый товар с витрины без плашки,
+     чтобы блок мерча не исчез с главной молча. */
   const shownMerch = visibleMerch();
-  const popular = shownMerch.find(p=>p.popular) || shownMerch[0] || null;
-  // новинка — последний добавленный товар на витрине, но не тот же, что уже
-  // показан как популярный (иначе на главной дублировалась одна и та же карточка).
-  // Если включённый товар всего один — второй карточки просто не будет.
-  const newest = popular ? [...shownMerch].reverse().find(p => p.id !== popular.id) || null : null;
+  let homePicks = merchOrdered(shownMerch).filter(p => merchTag(p));
+  if (!homePicks.length && shownMerch.length) homePicks = [shownMerch[0]];
   const chapterTag = chapterLabel(latest.chapter);
   const latestBadge = latest.number != null ? `${chapterTag} · EP.${String(latest.number).padStart(2,'0')}` : chapterTag;
 
@@ -791,16 +802,14 @@ function renderHome(){
     </div>
   </section>
 
-  ${popular ? `
+  ${homePicks.length ? `
   <section>
     <div class="wrap">
       <div class="section-head">
         <h2>Мерч</h2>
       </div>
       <div class="merch-grid">
-        ${newest ? productCardHtml(newest, 'Новый дроп') : ''}
-        ${productCardHtml(popular, newest ? 'Популярное' : null)}
-      </div>
+        ${homePicks.map(p => productCardHtml(p, merchTag(p))).join('')}
       </div>
     </div>
   </section>` : ''}
@@ -1042,10 +1051,59 @@ function plural(n, one, few, many){
 function visibleMerch(){
   return CONFIG.merch.filter(p => p.active !== false);
 }
+
+/* Плашка товара и его место на витрине — одни и те же два флажка из
+   редактора. Отмеченное стоит первым и в разделе «Мерч», и на главной:
+   то, что мы сами назвали новым и популярным, должно попадаться на глаза
+   первым, а не теряться в середине списка по воле порядка в файле.
+
+   Внутри каждой группы порядок остаётся тот, что в каталоге, — чтобы
+   перестановки в редакторе работали предсказуемо. */
+/* Срок доставки. Отдельной строкой, а не внутри описания: у предзаказа это
+   не рассказ о вещи, а условие сделки — его надо видеть до нажатия кнопки,
+   в том числе на витрине, где описание не показывается вовсе. Пусто —
+   строки нет, и у товаров со склада её и не должно быть. */
+function leadTimeHtml(p, cls){
+  const text = p && typeof p.leadTime === 'string' ? p.leadTime.trim() : '';
+  return text ? `<div class="lead-time mono ${cls || ''}">${escapeHtml(text)}</div>` : '';
+}
+function merchTag(p){
+  if (!p) return null;
+  if (p.isNew) return 'Новое';
+  if (p.popular) return 'Популярное';
+  return null;
+}
+function merchOrdered(list){
+  const neu = list.filter(p => p.isNew);
+  const pop = list.filter(p => p.popular && !p.isNew);
+  const rest = list.filter(p => !p.isNew && !p.popular);
+  return [...neu, ...pop, ...rest];
+}
 // Магазин работает по предзаказу, поэтому вместо «в наличии» так и пишем.
 // Остаток при этом настоящий — это размер партии, и когда его остаётся мало,
 // об этом честно сообщаем отдельной строкой.
+/* Товары делятся на два вида, и почти всё поведение витрины следует из этого.
+
+   С тиражом (у худи есть editionTotal/editionLeft) — ограниченная партия.
+   Её ещё не отшили, поэтому кнопка «Предзаказ», и остаток показывается
+   числом: «осталось 20 из 20» — это и есть повод не откладывать.
+
+   Без тиража (футболки) — обычный товар со склада. Кнопка «Купить», и
+   про остатки покупателю не сообщается вовсе: сколько именно лежит на
+   складе — не его забота, а знание «осталось 3» только нервирует.
+
+   Раз остаток не показывается, он и не должен молча мешать: упереться
+   в невидимую границу и не понять, почему кнопка ничего не делает, —
+   худшее из возможного. Поэтому у таких товаров ограничение одно,
+   техническое: не больше ORDER_MAX в один заказ, чтобы случайный ноль
+   в количестве не превратился в заказ на пятьсот футболок. */
+function isPreorder(product){ return !!product && product.preorder === true; }
+const ORDER_MAX = 10;
+
 function stockLabel(product){
+  // У товара без тиража остатки скрыты совсем — вызывающий код проверяет
+  // null и не рисует плашку.
+  if (!usesEdition(product)) return null;
   const left = editionLeft(product);
   if (left <= 0) return { text:'всё разобрали', cls:'stock-out' };
   // Тираж ограничен, и это главное, что нужно знать до покупки: показываем
@@ -1071,12 +1129,15 @@ function buyButtonHtml(product){
     return `<button class="btn-outline buy-btn" data-open-cart="${product.id}">Посмотреть корзину</button>`;
   }
   // Тираж разобран — кнопка не должна обещать предзаказ, которого не будет.
-  if (editionLeft(product) <= 0){
+  // Только для товаров с тиражом: у остальных остаток не считается и не
+  // показывается, значит и запрещать по нему нечего.
+  if (usesEdition(product) && editionLeft(product) <= 0){
     return `<button class="btn-outline buy-btn" disabled style="opacity:.4;cursor:not-allowed;">Тираж разобрали</button>`;
   }
   // Из списка товар в корзину не кладётся: размер нужно выбрать осознанно,
   // поэтому кнопка ведёт в карточку товара, где есть размеры и количество.
-  return `<button class="btn buy-btn" data-choose-size="${product.id}">Предзаказ</button>`;
+  const label = isPreorder(product) ? 'Предзаказ' : 'Купить';
+  return `<button class="btn buy-btn" data-choose-size="${product.id}">${label}</button>`;
 }
 /* Выключатель опроса. Сам опрос никуда не делся — весь код, вопросы,
    выгрузка в таблицу и скидка на месте; выключается только то, через что
@@ -1137,7 +1198,8 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         ${priceBlockHtml(p)}
-        <div class="stock-flag ${st.cls}">${st.text}</div>
+        ${st ? `<div class="stock-flag ${st.cls}">${st.text}</div>` : ''}
+        ${leadTimeHtml(p)}
         ${buyButtonHtml(p)}
         ${surveyButtonHtml(p, 'survey-btn')}
       </div>
@@ -1155,7 +1217,7 @@ function renderMerch(){
     : shown.filter(p=>p.category===activeFilter);
 
   const cards = filtered.length
-    ? filtered.map(p => productCardHtml(p, p.popular ? 'Популярное' : null)).join('')
+    ? merchOrdered(filtered).map(p => productCardHtml(p, merchTag(p))).join('')
     : `<div class="stock-note mono">Здесь пока пусто — скоро вернёмся с новым дропом.</div>`;
 
   return `
@@ -1902,9 +1964,12 @@ function renderModal(){
           <button class="qty-btn" id="qtyMinus" ${modalQty<=1?'disabled':''}>−</button>
           <span class="qty-val" id="qtyVal">${modalQty}</span>
           <button class="qty-btn" id="qtyPlus" ${modalSize && modalQty < qtyCap ? '' : 'disabled'}>+</button>
-          <span class="stock-note">${modalSize ? `осталось: ${Math.max(availableForSize,0)}` : 'выберите размер'}</span>
+          <span class="stock-note">${!modalSize
+            ? 'выберите размер'
+            : (usesEdition(p) ? `осталось: ${Math.max(availableForSize,0)}` : '')}</span>
         </div>
       </div>
+      ${leadTimeHtml(p, 'lead-time-modal')}
       <button class="btn" id="addToCartBtn" ${addDisabled?'disabled style="opacity:.4;cursor:not-allowed;"':''}>${addLabel}</button>
       ${modalMsg ? `<div class="add-msg">${escapeHtml(modalMsg)}</div>` : ''}
       ${inCart > 0 ? `<button class="btn-outline" id="modalCartBtn">Посмотреть корзину</button>` : ''}
@@ -2275,7 +2340,7 @@ function renderDrawer(){
       ? `<div class="dup-warn">В недавнем заказе <b>${escapeHtml(placedOrder.number)}</b> уже есть ${escapeHtml(d.join(', '))}. Убедитесь, что это не повтор.</div>`
       : ''; })()}
     <div class="total-row"><b>Итого</b><span class="mono">${formatPrice(cartTotalPrice())}</span></div>
-    ${surveyResult && surveyResult.discount ? `
+    ${surveyEnabled() && surveyResult && surveyResult.discount ? `
     <div class="total-row discount-row"><span>Скидка за опрос</span><span class="mono">−${formatPrice(surveyResult.discount)}</span></div>
     <div class="total-row"><b>С учётом скидки</b><span class="mono">${formatPrice(Math.max(cartTotalPrice() - surveyResult.discount, 0))}</span></div>` : ''}
 
@@ -2824,7 +2889,10 @@ async function handleCheckout(){
     return it;
   });
   const total = cartTotalPrice();
-  const discount = (surveyResult && surveyResult.discount) || 0;
+  // Опрос выключен — скидки нет ни у кого, включая тех, у кого в браузере
+  // остался результат с прошлого раза. Иначе в заказе всплывала бы строка
+  // про скидку за опрос, которого на сайте уже нет.
+  const discount = (surveyEnabled() && surveyResult && surveyResult.discount) || 0;
   const orderId = surveyResult && surveyResult.id ? surveyResult.id : ('O' + Date.now().toString(36));
 
   // Заказ уезжает в ту же таблицу и той же строкой, что и ответы опроса

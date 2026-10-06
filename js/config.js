@@ -380,7 +380,7 @@ const CONFIG = {
       images: [
         'assets/merch/spotter-hoodie-black-1.jpg',
         'assets/merch/spotter-hoodie-black-2.jpg',
-        'assets/merch/spotter-hoodie-black-size.jpg'
+        'assets/merch/spotter-hoodie-size-mlxl.jpg'
       ]
     }
   ]

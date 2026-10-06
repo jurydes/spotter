@@ -221,11 +221,13 @@ def merch_card(p):
     total = p.get('editionTotal')
     stock = ('<div class="stock-flag">осталось {} из {}</div>'.format(left, total)
              if isinstance(left, int) and isinstance(total, int) else '')
+    lead = ('<div class="lead-time mono">{}</div>'.format(esc(str(p['leadTime']).strip()))
+            if str(p.get('leadTime') or '').strip() else '')
     return (
         '<div class="merch-card">{photo}<div class="card-body">'
-        '<h3>{name}</h3><div class="price">{price}&nbsp;₽</div>{stock}'
+        '<h3>{name}</h3><div class="price">{price}&nbsp;₽</div>{stock}{lead}'
         '<p class="desc">{desc}</p></div></div>'
-    ).format(photo=photo, name=esc(p.get('name')),
+    ).format(photo=photo, lead=lead, name=esc(p.get('name')),
              price='{:,}'.format(int(p.get('price') or 0)).replace(',', ' '),
              stock=stock, desc=multiline(p.get('description')))
 
@@ -240,6 +242,12 @@ def merch_section(merch, heading='Мерч'):
     # Ровно то же правило, что в visibleMerch() на сайте: скрыт только тот,
     # у кого явно active: false. Товар без поля показывается.
     shown = [p for p in merch if p.get('active') is not False]
+    # И тот же порядок, что в merchOrdered(): отмеченное «Новое» и
+    # «Популярное» — наверх. Иначе робот видел бы витрину в одном порядке,
+    # а посетитель в другом.
+    shown = ([p for p in shown if p.get('isNew')]
+             + [p for p in shown if p.get('popular') and not p.get('isNew')]
+             + [p for p in shown if not p.get('isNew') and not p.get('popular')])
     if not shown:
         return ''
     cards = ''.join(merch_card(p) for p in shown)

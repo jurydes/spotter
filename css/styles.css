@@ -438,6 +438,13 @@
      приглушённого цвета и терялась сильнее, чем название товара. */
   .merch-card .price{font-family:var(--f-mono);font-size:18px;font-weight:700;color:var(--paper);}
   .merch-card .stock-flag{font-family:var(--f-mono);font-size:12px;letter-spacing:0.03em;text-transform:uppercase;}
+  /* Срок доставки у предзаказа. Тон приглушённый — это условие, а не
+     заголовок, но стоит прямо над кнопкой, чтобы попалось на глаза до неё. */
+  .lead-time{font-size:12px;letter-spacing:0.03em;color:var(--paper-dim);}
+  .lead-time-modal{
+    border-left:2px solid var(--line);padding-left:10px;
+    font-size:13px;color:var(--steel);
+  }
   .stock-ok{color:var(--steel);}
   .stock-low{color:var(--warn);}
   .stock-out{color:var(--paper-dim);}
@@ -511,7 +518,16 @@
      без overflow-x:auto и min-width:0 у родителей ряд просто раздвигал
      всю карточку товара шире экрана и создавал горизонтальный скролл
      всей страницы. */
-  .thumb-row{display:flex;gap:8px;padding:8px;background:var(--ink);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  /* Миниатюры переносятся на вторую строку, а не уезжают в прокрутку.
+     Пока фото было четыре, ряд помещался всегда; с девятью под ним
+     появлялась системная полоса прокрутки, а часть кадров пряталась за
+     краем — их не видно, и что они есть, никак не понять. Перенос честнее:
+     видно сразу все. Прокрутка остаётся страховкой на узком экране, где
+     и в две строки может не хватить. */
+  .thumb-row{
+    display:flex;flex-wrap:wrap;gap:8px;padding:8px;background:var(--ink);
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+  }
   .thumb{
     width:56px;height:70px;padding:0;border:1px solid var(--line);background:none;
     overflow:hidden;flex-shrink:0;transition:border-color .15s;
