@@ -1,0 +1,23 @@
+﻿{
+  "event": [
+    {
+      "active": true,
+      "title": "SPOTTER LIVE",
+      "date": "23 октября",
+      "dateShort": "23.10",
+      "place": "бар БТК, пр. Мира, 102, корп. 1",
+      "poster": "assets/events/spotter-live-2026-10-23.jpg",
+      "age": "18+",
+      "ticketPrice": 1000,
+      "ticketsTotal": 40,
+      "ticketsLeft": 40,
+      "lineup": [
+        "BOOMBAP: METOX, БРАЗИЛЕЦ, КРИП-А-КРИП, SCHOKK, DADDY BOCHA",
+        "GARAGE: FOLKPRO, DEKABRJ, SPIRITNIGHT, PLEMYANNIK, CH33",
+        "GRIME: SPIESKEY, ESKI M, SAPA13, КУКИШ С ХАСЛОМ, SHALA",
+        "DJ: DJ CHAPO, DJ 1312"
+      ],
+      "note": ""
+    }
+  ]
+}

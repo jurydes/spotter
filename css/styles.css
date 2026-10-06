@@ -237,6 +237,71 @@
   .hero-photo:hover .vf-corner{border-color:var(--accent);}
   .btn{position:relative;overflow:hidden;}
 
+  /* ================= АФИША СОБЫТИЯ =================
+     Занимает первый экран вместо последнего выпуска, пока в данных есть
+     включённое событие. Своя сетка, а не .hero-grid: там ширину колонок
+     подбирает скрипт под кадр 16:9, а афиша вертикальная (9:16), и под
+     неё тот расчёт не подходит. */
+  .ev-hero{border-bottom:1px solid var(--line);}
+  .ev-grid{
+    display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.15fr);
+    gap:clamp(24px,3.5vw,48px);align-items:center;width:100%;
+  }
+  /* Кадр сжимается по высоте экрана, а колонка остаётся широкой — поэтому
+     центрируем его, иначе афиша прижималась бы к левому краю. */
+  .ev-poster{display:flex;justify-content:center;width:100%;min-width:0;}
+  .ev-poster[data-zoom-poster]{cursor:zoom-in;}
+  .ev-poster .ph-photo{aspect-ratio:9/16;max-height:72vh;width:auto;height:72vh;max-width:100%;}
+  .ev-poster .ph-img{object-fit:contain;background:#000;}
+  .ev-poster-empty{
+    display:flex;align-items:center;justify-content:center;
+    color:var(--paper-dim);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;
+  }
+  .ev-info{min-width:0;}
+  .ev-hero h1{font-size:clamp(34px,4.4vw,62px);line-height:1.05;margin-bottom:10px;}
+  .ev-when{
+    font-size:14px;letter-spacing:0.04em;color:var(--accent-light);
+    margin-bottom:22px;text-transform:uppercase;
+  }
+  /* Жанры: на широком экране колонками, как на афише; на узком — лентой
+     сверху вниз, иначе имена ломаются по буквам. */
+  .ev-lineup{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px 20px;margin-bottom:26px;}
+  .ev-genre{min-width:0;}
+  .ev-genre-tag{
+    display:block;font-size:12px;font-weight:700;letter-spacing:0.1em;
+    color:#fff;padding:4px 10px;margin-bottom:10px;text-transform:uppercase;
+  }
+  .ev-names{list-style:none;display:flex;flex-direction:column;gap:5px;}
+  .ev-names li{
+    font-family:var(--f-display);font-weight:700;text-transform:uppercase;
+    font-size:15px;letter-spacing:0.01em;line-height:1.2;overflow-wrap:anywhere;
+  }
+  .ev-buy-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .ev-buy{padding:15px 28px;font-size:15px;}
+  .ev-buy:disabled{background:var(--surface-2);color:var(--paper-dim);cursor:not-allowed;}
+  .ev-stock{font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:var(--steel);}
+  .ev-in-cart{margin-top:10px;font-size:12px;color:var(--accent-light);letter-spacing:0.03em;}
+  /* Паспорт и 18+ — не мелкий шрифт в углу: человек, которого развернут
+     на входе, потеряет и вечер, и деньги. */
+  .ev-rules{
+    margin-top:18px;max-width:52ch;font-family:var(--f-body);font-size:14px;
+    color:var(--paper-dim);border-left:2px solid var(--warn);padding-left:12px;
+  }
+  .ev-rules b{color:var(--paper);}
+  @media (max-width:860px){
+    .ev-grid{display:block;}
+    .ev-poster{margin:0 auto 26px;}
+    /* Вертикальная афиша во всю ширину телефона забирала весь первый экран,
+       и название с кнопкой «Купить билет» оказывались за сгибом. Ограничиваем
+       по высоте: кадр остаётся 9:16, но до кнопки рукой подать. */
+    .ev-poster .ph-photo{height:62vh;width:auto;max-width:100%;max-height:none;}
+  }
+
+  /* Условия входа в оформлении — тот же смысл, что .ev-rules на главной,
+     но внутри узкой корзины. */
+  .ticket-terms{border-left:2px solid var(--warn);padding-left:12px;}
+  .ticket-passport b{color:var(--paper);}
+
   /* ================= ТИКЕР — состав площадки бегущей строкой ================= */
   .ticker{
     position:relative;overflow:hidden;

@@ -56,6 +56,15 @@ def read_json(rel, key):
     return items
 
 
+def read_json_optional(rel, key):
+    """Для файлов, которых может не быть вовсе, — например data/event.json,
+    пока концерт не объявлен. Нет файла — просто пустой список."""
+    try:
+        return read_json(rel, key)
+    except (OSError, ValueError, SystemExit):
+        return []
+
+
 # --- слаги: точь-в-точь как в js/app.js, иначе ссылки разъедутся ----------
 TRANSLIT = {
     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
@@ -299,6 +308,54 @@ def hero_section(ep, bios, aliases):
              lineup=lineup_html(ep, bios, aliases), btn=btn, photo=photo)
 
 
+def parse_lineup(lines):
+    """«ЖАНР: имя, имя» -> [(жанр, [имена])]. Повторяет parseLineup в app.js."""
+    out = []
+    for raw in lines or []:
+        text = str(raw or '').strip()
+        if not text:
+            continue
+        genre, _, rest = text.partition(':')
+        if not rest:
+            genre, rest = '', text
+        names = [n.strip() for n in rest.split(',') if n.strip()]
+        if names:
+            out.append((genre.strip(), names))
+    return out
+
+
+def event_section(ev):
+    """Афиша в тексте страницы. Концерт — самое «ищущееся», что есть на
+    сайте: дата, место и два десятка имён, которые люди набирают руками."""
+    if not ev:
+        return ''
+    groups = ''.join(
+        '<div class="ev-genre">{}<ul class="ev-names">{}</ul></div>'.format(
+            '<div class="ev-genre-tag mono">{}</div>'.format(esc(genre)) if genre else '',
+            ''.join('<li>{}</li>'.format(esc(n)) for n in names))
+        for genre, names in parse_lineup(ev.get('lineup')))
+    poster = ('<div class="ph-photo viewfinder"><img class="ph-img" src="/{}" alt="Афиша {}"></div>'
+              .format(esc(ev['poster']), esc(ev.get('title'))) if ev.get('poster') else '')
+    when = ' · '.join(x for x in [ev.get('date'), ev.get('place')] if x)
+    price = ev.get('ticketPrice')
+    return (
+        '<section class="hero ev-hero"><div class="wrap ev-grid">'
+        '<div class="ev-poster">{poster}</div>'
+        '<div class="ev-info">'
+        '<div class="badge-rec">Offline ивент{age}</div>'
+        '<h1>{title}</h1><div class="ev-when mono">{when}</div>'
+        '{note}<div class="ev-lineup">{groups}</div>'
+        '<div class="ev-buy-row"><span class="ev-price mono">Билет {price} ₽</span></div>'
+        '<p class="ev-rules">Билет придёт в Telegram после оформления. '
+        'Вход{age2}, <b>паспорт обязателен</b>.</p>'
+        '</div></div></section>'
+    ).format(poster=poster, age=(' · ' + esc(ev['age'])) if ev.get('age') else '',
+             title=esc(ev.get('title') or 'SPOTTER LIVE'), when=esc(when),
+             note='<p class="lead">{}</p>'.format(multiline(ev['note'])) if ev.get('note') else '',
+             groups=groups, price=esc(price if price is not None else ''),
+             age2=(' ' + esc(ev['age'])) if ev.get('age') else '')
+
+
 def about_section(about, quote):
     if not about:
         return ''
@@ -310,6 +367,36 @@ def about_section(about, quote):
 
 
 # --- разметка для поисковиков (Schema.org) -------------------------------
+def event_json_ld(ev):
+    """Разметка концерта. По ней поисковик показывает карточку события —
+    с датой, местом и ценой прямо в выдаче."""
+    if not ev:
+        return ''
+    block = {
+        '@context': 'https://schema.org', '@type': 'MusicEvent',
+        'name': '{} · {}'.format(ev.get('title') or 'SPOTTER LIVE', ev.get('date') or ''),
+        'url': SITE + '/',
+        'eventStatus': 'https://schema.org/EventScheduled',
+        'eventAttendanceMode': 'https://schema.org/OfflineEventAttendanceMode',
+        'performer': [{'@type': 'MusicGroup', 'name': n}
+                      for _, names in parse_lineup(ev.get('lineup')) for n in names],
+        'organizer': {'@type': 'Organization', 'name': 'SPOTTER LIVE', 'url': SITE + '/'},
+    }
+    if ev.get('place'):
+        block['location'] = {'@type': 'Place', 'name': ev['place'],
+                             'address': {'@type': 'PostalAddress', 'addressLocality': 'Москва',
+                                         'streetAddress': ev['place']}}
+    if ev.get('poster'):
+        block['image'] = '{}/{}'.format(SITE, ev['poster'])
+    if ev.get('ticketPrice') is not None:
+        block['offers'] = {'@type': 'Offer', 'price': ev['ticketPrice'], 'priceCurrency': 'RUB',
+                           'url': SITE + '/',
+                           'availability': 'https://schema.org/InStock'
+                           if (ev.get('ticketsLeft') or 0) > 0 else 'https://schema.org/SoldOut'}
+    return '\n<script type="application/ld+json">{}</script>'.format(
+        json.dumps(block, ensure_ascii=False))
+
+
 def json_ld(episodes):
     org = {
         '@context': 'https://schema.org',
@@ -409,6 +496,10 @@ def main():
     artists = read_json('data/artists.json', 'artists')
     bios = {a['name']: a.get('bio', '') for a in artists if a.get('name')}
     aliases, about, quote = read_config_bits()
+    # Событие необязательно: пока концерт не объявлен, файла может не быть
+    # вовсе, и это не повод валить сборку.
+    events = read_json_optional('data/event.json', 'event')
+    event = next((e for e in events if e and e.get('active')), None)
 
     with open(os.path.join(ROOT, 'index.html'), encoding='utf-8') as f:
         shell = f.read()
@@ -419,19 +510,32 @@ def main():
     made = []
 
     # --- главная ---------------------------------------------------------
-    home_body = (hero_section(latest, bios, aliases)
+    # Объявлен концерт — первый экран его, как и на живом сайте. Выпуск при
+    # этом никуда не девается: он ниже, в разделе выпусков.
+    first_screen = event_section(event) if event else hero_section(latest, bios, aliases)
+    home_body = (first_screen
                  + about_section(about, quote)
                  + episodes_section(episodes, bios, aliases, 'Выпуски')
                  + merch_section(merch))
-    home_title = 'SPOTTER LIVE — русский грайм вживую, в один заход'
-    home_desc = ('SPOTTER LIVE — первое грайм-шоу в России: МС читают вживую под сэт '
-                 'инструменталов, в один заход, без десятков дублей. Архив выпусков '
-                 'с составами и мерч проекта.')
+    if event:
+        home_title = '{} · {} — {}'.format(
+            event.get('title') or 'SPOTTER LIVE', event.get('date') or '',
+            event.get('place') or 'Москва')
+        names = [n for _, ns in parse_lineup(event.get('lineup')) for n in ns]
+        home_desc = 'Живой концерт SPOTTER LIVE {}, {}. {}. Билет {} ₽.'.format(
+            event.get('date') or '', event.get('place') or '',
+            ', '.join(names[:12]), event.get('ticketPrice'))
+        home_desc = re.sub(r'\s+', ' ', home_desc).strip()[:300]
+    else:
+        home_title = 'SPOTTER LIVE — русский грайм вживую, в один заход'
+        home_desc = ('SPOTTER LIVE — первое грайм-шоу в России: МС читают вживую под сэт '
+                     'инструменталов, в один заход, без десятков дублей. Архив выпусков '
+                     'с составами и мерч проекта.')
     # og:image в index.html прописан относительным путём — для превью
     # в мессенджерах он должен быть полным адресом, иначе карточка пустая.
     home_og = '{}/{}'.format(SITE, latest['cover']) if latest.get('cover') else None
     home = build_page(shell, home_body, home_title, home_desc, SITE + '/', og_image=home_og)
-    home = home.replace('</head>', json_ld(episodes) + '\n</head>', 1)
+    home = home.replace('</head>', json_ld(episodes) + event_json_ld(event) + '\n</head>', 1)
     write('index.html', home, made)
 
     # --- разделы ---------------------------------------------------------

@@ -301,6 +301,7 @@ async function refreshViews(){
 const EPISODES_JSON_URL = 'data/episodes.json';
 const MERCH_JSON_URL = 'data/merch.json';
 const ARTISTS_JSON_URL = 'data/artists.json';
+const EVENT_JSON_URL = 'data/event.json';
 // Потолок ожидания. Не «сколько ждать быстрый ответ» (быстрый приходит за
 // свои 100 мс), а граница между «медленно» и «не ответили»: после неё
 // честнее показать снимок, чем держать скелет бесконечно.
@@ -357,13 +358,19 @@ async function fetchJsonList(url, key){
   }
 }
 async function loadContentData(){
-  const [episodes, merch, artists] = await Promise.all([
+  const [episodes, merch, artists, event] = await Promise.all([
     fetchJsonList(EPISODES_JSON_URL, 'episodes'),
     fetchJsonList(MERCH_JSON_URL, 'merch'),
-    fetchJsonList(ARTISTS_JSON_URL, 'artists')
+    fetchJsonList(ARTISTS_JSON_URL, 'artists'),
+    fetchJsonList(EVENT_JSON_URL, 'event')
   ]);
   if (episodes) CONFIG.episodes = episodes;
   if (merch) CONFIG.merch = merch;
+  // Событий в файле список, но на главной живёт одно — первое включённое.
+  // Списком, а не одиночной записью, чтобы прошедшие события можно было
+  // хранить рядом выключенными, а не стирать вместе с составом.
+  if (event) CONFIG.event = event.find(e => e && e.active) || null;
+  injectTicketProduct();
   // Подписи — список пар имя/подпись, а пользуются им по имени. Строки без
   // имени пропускаем: в редакторе легко добавить пустую строку и забыть.
   if (artists){
@@ -636,13 +643,27 @@ function addToCart(productId, size, qty){
   const room = availableFor(productId, size);
   if (room <= 0) return false;
   const add = Math.min(qty, room);
+  // Билет и мерч в одном заказе не едут. Чистим корзину от другого вида
+  // и говорим об этом прямо: молча выбросить набранное — худшее, что
+  // можно сделать с корзиной.
+  const wantsTicket = isTicketId(productId);
+  let swapNotice = '';
+  if (wantsTicket && cartHasMerch()){
+    cart = cart.filter(c => isTicketId(c.productId));
+    swapNotice = 'Мерч убрали из корзины: билет оформляется отдельным заказом. Вернитесь за ним после — всё на месте.';
+  } else if (!wantsTicket && cartHasTickets()){
+    cart = cart.filter(c => !isTicketId(c.productId));
+    swapNotice = 'Билет убрали из корзины: он оформляется отдельным заказом. Возьмите его следующим — места не пропадут.';
+  }
   const existing = cart.find(c => c.productId === productId && c.size === size);
   if (existing) existing.qty += add;
   else cart.push({ productId, size, qty: add });
-  cartNotice = ''; // объяснение прошлой правки корзины больше не актуально
+  // Объяснение прошлой правки корзины больше не актуально — кроме случая,
+  // когда мы только что сами и поменяли состав, разведя билет и мерч.
+  cartNotice = swapNotice;
   saveCart();
   renderCartCount();
-  goal('cart_add', { size, qty: add });
+  goal('cart_add', { size, qty: add, ticket: wantsTicket || undefined });
   return add === qty;
 }
 function removeFromCart(productId, size){
@@ -776,6 +797,71 @@ bindEl('tabsMobile', 'click', e=>{
 /* =====================================================================
    RENDER: HOME
    ===================================================================== */
+/* Первый экран, когда объявлено событие. Занимает место последнего
+   выпуска — так и задумано: пока идёт продажа билетов, это главное, что
+   должен увидеть зашедший. Событие кончилось, выключили в редакторе —
+   главная сама возвращается к выпуску.
+
+   Кнопка «Купить билет» кладёт билет в корзину и сразу открывает её:
+   промежуточного экрана с выбором размера у билета нет, и задерживать
+   человека лишним шагом незачем. */
+function eventHeroHtml(ev){
+  const ticket = findProduct(TICKET_ID);
+  const left = ticket ? availableFor(TICKET_ID) : 0;
+  const total = ticket ? editionTotal(ticket) : 0;
+  const inCart = qtyInCart(TICKET_ID, TICKET_SIZE);
+  const price = ticket ? ticket.price : 0;
+
+  const groups = parseLineup(ev.lineup).map(g => `
+    <div class="ev-genre">
+      ${g.genre ? `<div class="ev-genre-tag mono" style="background:${genreColor(g.genre)}">${escapeHtml(g.genre)}</div>` : ''}
+      <ul class="ev-names">${g.artists.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>
+    </div>`).join('');
+
+  /* Уголки видоискателя сайт рисует вокруг каждого кадра — но афишу
+     рисуют в той же манере, и на ней эти уголки уже напечатаны. Поверх
+     получалась двойная рамка, уголок в уголке. Поэтому у настоящей афиши
+     своих уголков не добавляем: она приходит со своими.
+
+     У пустого места, наоборот, оставляем — там рамка единственное, что
+     показывает, какого размера будет афиша. */
+  const corners = `<span class="vf-corner vf-tl"></span><span class="vf-corner vf-tr"></span>
+    <span class="vf-corner vf-bl"></span><span class="vf-corner vf-br"></span>`;
+  const poster = ev.poster
+    ? `<div class="ph-photo"><img class="ph-img" src="${escapeHtml(ev.poster)}" alt="Афиша ${escapeHtml(ev.title || '')}" loading="eager" fetchpriority="high"></div>`
+    : `<div class="ph-photo viewfinder ev-poster-empty"><span class="mono">афиша появится здесь</span>${corners}</div>`;
+
+  // Остаток показываем всегда, а не только когда билетов мало: зал
+  // маленький, и «осталось 7 из 40» — это и есть повод не откладывать.
+  const stock = left > 0
+    ? `<div class="ev-stock mono ${left <= 10 ? 'stock-low' : ''}">осталось ${left} из ${total}</div>`
+    : `<div class="ev-stock mono stock-out">билеты закончились</div>`;
+
+  const button = left > 0
+    ? `<button class="btn ev-buy" data-buy-ticket>Купить билет · ${formatPrice(price)}</button>`
+    : `<button class="btn ev-buy" disabled>Билеты закончились</button>`;
+
+  return `
+  <section class="hero ev-hero">
+    <div class="wrap ev-grid">
+      <div class="ev-poster" ${ev.poster ? 'data-zoom-poster' : ''}>${poster}</div>
+      <div class="ev-info">
+        <div class="badge-rec"><span class="dot"></span> Offline ивент${ev.age ? ' · ' + escapeHtml(ev.age) : ''}</div>
+        <h1>${escapeHtml(ev.title || 'SPOTTER LIVE')}</h1>
+        <div class="ev-when mono">${escapeHtml([ev.date, ev.place].filter(Boolean).join(' · '))}</div>
+        ${ev.note ? `<p class="lead">${multilineText(ev.note)}</p>` : ''}
+        <div class="ev-lineup">${groups}</div>
+        <div class="ev-buy-row">
+          ${button}
+          ${stock}
+        </div>
+        ${inCart > 0 ? `<div class="ev-in-cart mono">в корзине: ${inCart}</div>` : ''}
+        <p class="ev-rules">Билет придёт в Telegram после оформления. Вход${ev.age ? ' ' + escapeHtml(ev.age) : ''}, <b>паспорт обязателен</b> — без документа не пустят.</p>
+      </div>
+    </div>
+  </section>`;
+}
+
 function renderHome(){
   const numbered = CONFIG.episodes.filter(e => e.number != null);
   const maxChapter = Math.max(...CONFIG.episodes.filter(e => e.chapter != null).map(e => e.chapter));
@@ -797,7 +883,10 @@ function renderHome(){
   const chapterTag = chapterLabel(latest.chapter);
   const latestBadge = latest.number != null ? `${chapterTag} · EP.${String(latest.number).padStart(2,'0')}` : chapterTag;
 
-  return `
+  // Объявлено событие — первый экран отдаём афише. Всё, что ниже (бегущая
+  // строка, «О проекте», мерч), остаётся на месте.
+  const ev = activeEvent();
+  const firstScreen = ev ? eventHeroHtml(ev) : `
   <section class="hero" style="border-top:none;">
     <div class="wrap hero-grid">
       <div class="hero-text">
@@ -813,7 +902,10 @@ function renderHome(){
         ${coverPhoto(latest, true)}
       </a>` : `<div class="hero-photo viewfinder">${coverPhoto(latest, true)}</div>`}
     </div>
-  </section>
+  </section>`;
+
+  return `
+  ${firstScreen}
 
   ${tickerHtml()}
 
@@ -1106,6 +1198,89 @@ function merchOrdered(list){
   const rest = list.filter(p => !p.isNew && !p.popular);
   return [...neu, ...pop, ...rest];
 }
+/* =====================================================================
+   СОБЫТИЕ И БИЛЕТЫ.
+
+   Афиша занимает первый экран главной вместо последнего выпуска, пока
+   в data/event.json есть включённое событие. Выключили — главная
+   возвращается к выпуску сама, без правок кода.
+
+   Билет сделан обычным товаром и кладётся в тот же CONFIG.merch. Это не
+   хитрость, а способ не писать второй раз всё то, что уже работает:
+   корзину, счёт остатка, проверку тиража при оформлении, номера заказов,
+   выгрузку в таблицу и письмо. active:false убирает его с витрины мерча —
+   купить билет можно только с афиши.
+   ===================================================================== */
+const TICKET_ID = 'ticket';
+// У билета нет размеров, но корзина устроена по паре «товар + размер».
+// Подставляем одно значение вместо того, чтобы разводить в корзине два
+// разных вида позиций.
+const TICKET_SIZE = 'вход';
+
+function activeEvent(){
+  const e = CONFIG.event;
+  return e && e.active !== false ? e : null;
+}
+function isTicketId(id){ return id === TICKET_ID; }
+
+function ticketProduct(ev){
+  const total = Number(ev.ticketsTotal);
+  const left = Number(ev.ticketsLeft);
+  return {
+    id: TICKET_ID,
+    name: `Билет · ${ev.title || 'SPOTTER LIVE'}${ev.dateShort ? ' ' + ev.dateShort : ''}`,
+    category: 'Билеты',
+    price: Number(ev.ticketPrice) || 0,
+    sizes: [TICKET_SIZE],
+    editionTotal: Number.isFinite(total) ? total : 0,
+    editionLeft: Number.isFinite(left) ? left : 0,
+    images: ev.poster ? [ev.poster] : [],
+    description: [ev.date, ev.place].filter(Boolean).join(', '),
+    active: false,       // на витрине мерча билета нет
+    isTicket: true
+  };
+}
+// Держим билет в каталоге ровно одной записью: loadContentData вызывает это
+// каждый раз, а список мерча к тому моменту мог приехать заново.
+function injectTicketProduct(){
+  CONFIG.merch = CONFIG.merch.filter(p => !isTicketId(p.id));
+  const ev = activeEvent();
+  if (ev) CONFIG.merch.push(ticketProduct(ev));
+}
+
+/* Состав по жанрам. В редакторе это обычный список строк вида
+   «GRIME: SPIESKEY, ESKI M, SAPA13» — по строке на жанр. Отдельных полей
+   под каждый жанр не делаем: на афише их три, на следующей может быть
+   две или пять, и схема с фиксированными полями сразу бы не подошла. */
+function parseLineup(lines){
+  return (Array.isArray(lines) ? lines : []).map(raw=>{
+    const text = String(raw || '').trim();
+    if (!text) return null;
+    const at = text.indexOf(':');
+    const genre = at > 0 ? text.slice(0, at).trim() : '';
+    const rest = at > 0 ? text.slice(at + 1) : text;
+    const artists = rest.split(',').map(s => s.trim()).filter(Boolean);
+    return artists.length ? { genre, artists } : null;
+  }).filter(Boolean);
+}
+// Цвета с афиши. Жанра нет в списке — берётся нейтральный, и это нормально:
+// плашка всё равно читается, просто без фирменного цвета.
+const GENRE_COLORS = {
+  'BOOMBAP': '#e32b1d', 'BOOM BAP': '#e32b1d',
+  'GARAGE': '#7b3ff2', 'UK GARAGE': '#7b3ff2',
+  'GRIME': '#131dff',
+  'DJ': '#c9c6bf', 'DJS': '#c9c6bf', 'ДИДЖЕИ': '#c9c6bf'
+};
+function genreColor(name){
+  return GENRE_COLORS[String(name || '').toUpperCase().trim()] || '#82858f';
+}
+
+function cartHasTickets(){ return cart.some(c => isTicketId(c.productId)); }
+function cartHasMerch(){ return cart.some(c => !isTicketId(c.productId)); }
+// Билет оформляется отдельно от мерча: у него другой способ получения
+// (приходит в Telegram) и нет доставки, а смешанный заказ пришлось бы
+// объяснять человеку прямо в форме. Проще не смешивать.
+function ticketOnlyOrder(){ return cartHasTickets() && !cartHasMerch(); }
 // Магазин работает по предзаказу, поэтому вместо «в наличии» так и пишем.
 // Остаток при этом настоящий — это размер партии, и когда его остаётся мало,
 // об этом честно сообщаем отдельной строкой.
@@ -1454,6 +1629,21 @@ function fitHeroTitle(){
 function bindDynamicHandlers(){
   document.querySelectorAll('[data-open-product]').forEach(el=>{
     el.addEventListener('click', ()=> openProduct(el.dataset.openProduct));
+  });
+  // Билет: кладём в корзину и сразу её открываем. Выбирать у билета нечего,
+  // поэтому промежуточный экран был бы лишним шагом.
+  document.querySelectorAll('[data-buy-ticket]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      if (!addToCart(TICKET_ID, TICKET_SIZE, 1)) return;
+      render();
+      openDrawer();
+    });
+  });
+  document.querySelectorAll('[data-zoom-poster]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const ev = activeEvent();
+      if (ev && ev.poster) openLightbox([ev.poster], 0, 'Афиша ' + (ev.title || ''));
+    });
   });
   document.querySelectorAll('.filters [data-filter]').forEach(el=>{
     el.addEventListener('click', ()=>{ activeFilter = el.dataset.filter; render(); });
@@ -2382,7 +2572,9 @@ function renderDrawer(){
       ${productPhoto(p)}
       <div class="ci-info">
         <h4>${escapeHtml(p.name)}</h4>
-        <div class="ci-meta">размер: ${escapeHtml(item.size)}</div>
+        <div class="ci-meta">${isTicketId(p.id)
+          ? escapeHtml(p.description || 'вход на концерт')
+          : 'размер: ' + escapeHtml(item.size)}</div>
         <div class="ci-controls">
           <button class="qty-btn" data-dec="${p.id}|${item.size}">−</button>
           <span class="qty-val">${item.qty}</span>
@@ -2403,13 +2595,19 @@ function renderDrawer(){
     <div class="total-row discount-row"><span>Скидка за опрос</span><span class="mono">−${formatPrice(surveyResult.discount)}</span></div>
     <div class="total-row"><b>С учётом скидки</b><span class="mono">${formatPrice(Math.max(cartTotalPrice() - surveyResult.discount, 0))}</span></div>` : ''}
 
+    ${ticketOnlyOrder() ? `
+    <div class="ticket-terms">
+      <div class="field-label">Как получите билет</div>
+      <p class="field-note">Билет придёт в Telegram на указанный ниже ник — напишем с аккаунта @${escapeHtml(CONFIG.telegramUsername || 'spottershop')}.</p>
+      <p class="field-note ticket-passport"><b>Паспорт обязателен.</b> Вход 18+, на входе проверяют документ — без него не пустят, билет при этом не возвращается.</p>
+    </div>` : `
     <div>
       <span class="field-label">Формат получения</span>
       <div class="radio-row">
         <label class="radio-opt"><input type="radio" name="delivery" value="Самовывоз" ${checkoutForm.delivery==='Самовывоз'?'checked':''}> Самовывоз <span class="opt-note">(только Москва)</span></label>
         <label class="radio-opt"><input type="radio" name="delivery" value="Доставка" ${checkoutForm.delivery==='Доставка'?'checked':''}> Доставка <span class="opt-note">(до ближайшего СДЭК)</span></label>
       </div>
-    </div>
+    </div>`}
     <div class="field">
       <span class="field-label">Фамилия и имя</span>
       <input type="text" id="nameField" autocomplete="name" placeholder="Иванов Иван" value="${escapeHtml(checkoutForm.name)}"${badAttr('name')}>
@@ -2424,7 +2622,9 @@ function renderDrawer(){
       <span class="field-label">Ник в Telegram</span>
       <input type="text" id="telegramField" placeholder="@username" value="${escapeHtml(checkoutForm.telegram)}"${badAttr('telegram')}>
       ${errHtml('telegram')}
-      <p class="field-note">По нему свяжемся по заказу. Нет ника — напишите номер телефона.</p>
+      <p class="field-note">${ticketOnlyOrder()
+        ? 'Сюда придёт билет — проверьте, что ник набран верно.'
+        : 'По нему свяжемся по заказу. Нет ника — напишите номер телефона.'}</p>
     </div>
     <div class="field" id="deliveryBlock"></div>
     <div>
@@ -2483,6 +2683,10 @@ function renderDrawer(){
 function renderDeliveryBlock(){
   const box = document.getElementById('deliveryBlock');
   if (!box) return;
+
+  // У билета получения нет: он приходит в Telegram, адрес спрашивать не за чем.
+  // Условия входа уже написаны выше, в блоке вместо выбора формата.
+  if (ticketOnlyOrder()){ box.innerHTML = ''; return; }
 
   if (checkoutForm.delivery === 'Самовывоз'){
     box.innerHTML = `<p class="field-note">Самовывоз только в Москве. Место и время согласуем в Telegram после заказа.</p>`;
@@ -2849,7 +3053,10 @@ async function handleCheckout(){
   const name = (checkoutForm.name || '').trim();
   const phone = (checkoutForm.phone || '').trim();
   const comment = (checkoutForm.comment || '').trim();
-  const delivery = checkoutForm.delivery;
+  // В заказе на билет формат получения один и выбора не предполагает —
+  // пишем его явно, чтобы в таблице и в письме не стоял «Самовывоз»,
+  // оставшийся от прошлого заказа на мерч.
+  const delivery = ticketOnlyOrder() ? 'Билет в Telegram' : checkoutForm.delivery;
 
   // ФИО и телефон нужны в обоих форматах: на самовывозе — чтобы отдать заказ
   // тому, кто за ним пришёл, при доставке — потому что СДЭК без них посылку
