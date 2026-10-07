@@ -1,4 +1,4 @@
-﻿{
+{
   "event": [
     {
       "active": true,
@@ -11,6 +11,8 @@
       "ticketPrice": 1000,
       "ticketsTotal": 40,
       "ticketsLeft": 40,
+      "ticketUrl": "https://boosty.to/spotterlive/posts/502a2cb6-88db-4e42-b737-b7b611b7f589?share=post_link",
+      "boostyTier": "Спартанец",
       "lineup": [
         "BOOMBAP: METOX, БРАЗИЛЕЦ, КРИП-А-КРИП, SCHOKK, DADDY BOCHA",
         "GARAGE: FOLKPRO, DEKABRJ, SPIRITNIGHT, PLEMYANNIK, CH33",

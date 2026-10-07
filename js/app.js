@@ -841,6 +841,20 @@ function eventHeroHtml(ev){
     ? `<button class="btn ev-buy" data-buy-ticket>Купить билет · ${formatPrice(price)}</button>`
     : `<button class="btn ev-buy" disabled>Билеты закончились</button>`;
 
+  /* Два способа попасть на событие, и какой включён — решают данные.
+
+     Продажа на стороне (ticketUrl заполнен): билетов на сайте нет вообще,
+     вместо них — порядок действий и ссылка. Порядок именно нумерованный:
+     подписка и пост — это шаги, второй без первого не сработает, и человек
+     должен понять это до того, как уйдёт по ссылке. Иначе он открывает
+     Boosty, видит пост с условиями и возвращается выяснять, почему ему
+     ничего не доступно.
+
+     Остаток при этом не показываем: сколько разобрали, знает Boosty, а не
+     сайт. «Осталось 40 из 40», которое никогда не меняется, хуже, чем
+     ничего — поэтому вместо счётчика просто размер зала. */
+  const howTo = eventHowToHtml(ev);
+
   return `
   <section class="hero ev-hero">
     <div class="wrap ev-grid">
@@ -851,15 +865,59 @@ function eventHeroHtml(ev){
         <div class="ev-when mono">${escapeHtml([ev.date, ev.place].filter(Boolean).join(' · '))}</div>
         ${ev.note ? `<p class="lead">${multilineText(ev.note)}</p>` : ''}
         <div class="ev-lineup">${groups}</div>
+        ${howTo || `
         <div class="ev-buy-row">
           ${button}
           ${stock}
         </div>
-        ${inCart > 0 ? `<div class="ev-in-cart mono">в корзине: ${inCart}</div>` : ''}
-        <p class="ev-rules">Билет придёт в Telegram после оформления. Вход${ev.age ? ' ' + escapeHtml(ev.age) : ''}, <b>паспорт обязателен</b> — без документа не пустят.</p>
+        ${inCart > 0 ? `<div class="ev-in-cart mono">в корзине: ${inCart}</div>` : ''}`}
+        <p class="ev-rules">${howTo
+          ? ''
+          : 'Билет придёт в Telegram после оформления. '}Вход${ev.age ? ' ' + escapeHtml(ev.age) : ''}, <b>паспорт обязателен</b> — без документа не пустят.</p>
       </div>
     </div>
   </section>`;
+}
+
+/* Порядок действий, когда билеты продаются не на сайте.
+
+   Пустая строка в ответе — значит, продажа идёт на сайте, и вызывающий код
+   рисует кнопку с корзиной, как раньше. Так переключение живёт в данных:
+   заполнили ссылку — попали в этот путь, очистили — вернулись к прежнему. */
+function eventHowToHtml(ev){
+  const url = ev && typeof ev.ticketUrl === 'string' ? ev.ticketUrl.trim() : '';
+  if (!url) return '';
+  const tier = ev.boostyTier ? String(ev.boostyTier).trim() : '';
+  const seats = Number(ev.ticketsTotal);
+  // Шаги описаны здесь, а не в данных: это не текст про конкретный концерт,
+  // а то, как у нас вообще устроен вход. Меняется только уровень подписки.
+  const steps = [
+    { title: 'Подписка на Boosty',
+      note: tier ? `Уровень «${tier}» или выше` : 'Нужен действующий уровень подписки' },
+    { title: 'Пост по ссылке',
+      note: 'Дальше — по указаниям из самого поста' }
+  ];
+  return `
+    <div class="ev-howto">
+      <div class="ev-howto-title mono">как попасть</div>
+      <ol class="ev-steps">
+        ${steps.map((s, i) => `
+          <li class="ev-step">
+            <span class="ev-step-n mono">${i + 1}</span>
+            <span class="ev-step-text">
+              <b>${escapeHtml(s.title)}</b>
+              <span class="ev-step-note">${escapeHtml(s.note)}</span>
+            </span>
+          </li>`).join('')}
+      </ol>
+      <div class="ev-buy-row">
+        <a class="btn ev-buy" href="${escapeHtml(url)}" target="_blank" rel="noopener"
+           data-goal="ticket_boosty">Открыть пост на Boosty</a>
+        ${Number.isFinite(seats) && seats > 0
+          ? `<div class="ev-stock mono">всего ${seats} ${plural(seats, 'место', 'места', 'мест')}</div>`
+          : ''}
+      </div>
+    </div>`;
 }
 
 function renderHome(){
@@ -1245,7 +1303,15 @@ function ticketProduct(ev){
 function injectTicketProduct(){
   CONFIG.merch = CONFIG.merch.filter(p => !isTicketId(p.id));
   const ev = activeEvent();
+  // Продажа на стороне — билета в каталоге нет совсем. Иначе он остался бы
+  // в корзине у тех, кто успел его туда положить, и сайт принимал бы заказы
+  // на билеты, которых больше не продаёт.
+  if (ev && !sellsTicketsOnSite(ev)) return;
   if (ev) CONFIG.merch.push(ticketProduct(ev));
+}
+// Билеты продаёт сам сайт, только пока не задана внешняя ссылка.
+function sellsTicketsOnSite(ev){
+  return !(ev && typeof ev.ticketUrl === 'string' && ev.ticketUrl.trim());
 }
 
 /* Состав по жанрам. В редакторе это обычный список строк вида
@@ -1638,6 +1704,12 @@ function bindDynamicHandlers(){
       render();
       openDrawer();
     });
+  });
+  // Уход за билетом на сторону. Единственная точка, где видно, сколько
+  // людей афиша реально довела до покупки: дальше начинается Boosty,
+  // и оттуда к нам ничего не возвращается.
+  document.querySelectorAll('[data-goal]').forEach(el=>{
+    el.addEventListener('click', ()=>goal(el.dataset.goal));
   });
   document.querySelectorAll('[data-zoom-poster]').forEach(el=>{
     el.addEventListener('click', ()=>{

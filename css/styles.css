@@ -271,7 +271,11 @@
     display:block;font-size:12px;font-weight:700;letter-spacing:0.1em;
     color:#fff;padding:4px 10px;margin-bottom:10px;text-transform:uppercase;
   }
-  .ev-names{list-style:none;display:flex;flex-direction:column;gap:5px;}
+  /* padding:0 обязателен: у <ul> свой отступ слева в 40px, и list-style:none
+     его не убирает. Имена из-за него стояли с лесенкой относительно плашки
+     жанра, а колонка теряла 40px из 160 — «SPIRITNIGHT» и «PLEMYANNIK»
+     не помещались и рвались переносом посреди слова. */
+  .ev-names{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;}
   .ev-names li{
     font-family:var(--f-display);font-weight:700;text-transform:uppercase;
     font-size:15px;letter-spacing:0.01em;line-height:1.2;overflow-wrap:anywhere;
@@ -281,6 +285,28 @@
   .ev-buy:disabled{background:var(--surface-2);color:var(--paper-dim);cursor:not-allowed;}
   .ev-stock{font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:var(--steel);}
   .ev-in-cart{margin-top:10px;font-size:12px;color:var(--accent-light);letter-spacing:0.03em;}
+  /* Как попасть, когда билеты продаются не на сайте. Нумерация здесь не
+     украшение: шаги работают только по порядку — подписка без поста никуда
+     не ведёт, а пост без подписки просто ничего не покажет. Поэтому номера
+     настоящие, рамкой и акцентным цветом, а не точки списка. */
+  .ev-howto-title{
+    font-size:12px;letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--paper-dim);margin-bottom:14px;
+  }
+  .ev-steps{
+    list-style:none;margin:0 0 22px;padding:0;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .ev-step{display:flex;align-items:flex-start;gap:13px;}
+  .ev-step-n{
+    flex:0 0 auto;width:27px;height:27px;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;line-height:1;
+    color:var(--accent-light);border:1px solid var(--accent-light);
+  }
+  .ev-step-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .ev-step-text b{font-size:17px;line-height:1.5;}
+  .ev-step-note{font-size:15px;line-height:1.45;color:var(--paper-dim);}
   /* Паспорт и 18+ — не мелкий шрифт в углу: человек, которого развернут
      на входе, потеряет и вечер, и деньги. */
   .ev-rules{

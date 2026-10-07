@@ -90,7 +90,8 @@ function sendHit(){
      checkout_start  — нажал «Оформить заказ»
      order_done      — заказ оформлен (с суммой)
      episode_open    — ушёл смотреть выпуск
-     share           — поделился ссылкой                                  */
+     share           — поделился ссылкой
+     ticket_boosty   — ушёл с афиши за билетом на Boosty                  */
 function goal(name, params){
   const id = metrikaId();
   if (!id || !window.ym) return;

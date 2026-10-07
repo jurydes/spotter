@@ -47,8 +47,13 @@ LOW_STOCK = 2
 
 
 def read_json(rel, key):
+    # utf-8-sig, а не utf-8: редакторы под Windows дописывают в начало файла
+    # BOM, и json его не переваривает. У data/event.json так и вышло —
+    # предрендер молча считал, что события нет, и афиша в готовый html
+    # не попадала совсем. Лишние три байта терпеть дешевле, чем ловить это
+    # второй раз; на файлах без BOM utf-8-sig ведёт себя как utf-8.
     path = os.path.join(ROOT, rel)
-    with open(path, encoding='utf-8') as f:
+    with open(path, encoding='utf-8-sig') as f:
         data = json.load(f)
     items = data.get(key)
     if not isinstance(items, list) or not items:
@@ -337,23 +342,70 @@ def event_section(ev):
     poster = ('<div class="ph-photo viewfinder"><img class="ph-img" src="/{}" alt="Афиша {}"></div>'
               .format(esc(ev['poster']), esc(ev.get('title'))) if ev.get('poster') else '')
     when = ' · '.join(x for x in [ev.get('date'), ev.get('place')] if x)
-    price = ev.get('ticketPrice')
     return (
         '<section class="hero ev-hero"><div class="wrap ev-grid">'
         '<div class="ev-poster">{poster}</div>'
         '<div class="ev-info">'
         '<div class="badge-rec">Offline ивент{age}</div>'
         '<h1>{title}</h1><div class="ev-when mono">{when}</div>'
-        '{note}<div class="ev-lineup">{groups}</div>'
-        '<div class="ev-buy-row"><span class="ev-price mono">Билет {price} ₽</span></div>'
-        '<p class="ev-rules">Билет придёт в Telegram после оформления. '
-        'Вход{age2}, <b>паспорт обязателен</b>.</p>'
+        '{note}<div class="ev-lineup">{groups}</div>{howto}'
+        '<p class="ev-rules">{terms}Вход{age2}, <b>паспорт обязателен</b>.</p>'
         '</div></div></section>'
     ).format(poster=poster, age=(' · ' + esc(ev['age'])) if ev.get('age') else '',
              title=esc(ev.get('title') or 'SPOTTER LIVE'), when=esc(when),
              note='<p class="lead">{}</p>'.format(multiline(ev['note'])) if ev.get('note') else '',
-             groups=groups, price=esc(price if price is not None else ''),
+             groups=groups, howto=event_howto(ev),
+             terms='' if ticket_url(ev) else 'Билет придёт в Telegram после оформления. ',
              age2=(' ' + esc(ev['age'])) if ev.get('age') else '')
+
+
+def plural(n, one, few, many):
+    """«1 место / 2 места / 5 мест» — как plural() в js/app.js."""
+    mod10, mod100 = n % 10, n % 100
+    if mod10 == 1 and mod100 != 11:
+        return one
+    if 2 <= mod10 <= 4 and not (12 <= mod100 <= 14):
+        return few
+    return many
+
+
+def ticket_url(ev):
+    url = ev.get('ticketUrl') if ev else None
+    return str(url).strip() if isinstance(url, str) and url.strip() else ''
+
+
+def event_howto(ev):
+    """Порядок действий и ссылка — то же, что рисует eventHowToHtml на сайте.
+
+    Ссылки наружу поисковику видеть полезно, а вот шаги важнее для человека,
+    который дошёл до страницы из выдачи: он должен понять условие («нужна
+    подписка») до того, как уйдёт по ссылке."""
+    url = ticket_url(ev)
+    if not url:
+        price = ev.get('ticketPrice')
+        return ('<div class="ev-buy-row"><span class="ev-price mono">Билет {} ₽</span></div>'
+                .format(esc(price if price is not None else '')))
+    tier = str(ev.get('boostyTier') or '').strip()
+    steps = [
+        ('Подписка на Boosty',
+         'Уровень «{}» или выше'.format(tier) if tier else 'Нужен действующий уровень подписки'),
+        ('Пост по ссылке', 'Дальше — по указаниям из самого поста'),
+    ]
+    items = ''.join(
+        '<li class="ev-step"><span class="ev-step-n mono">{n}</span>'
+        '<span class="ev-step-text"><b>{t}</b>'
+        '<span class="ev-step-note">{d}</span></span></li>'.format(n=i + 1, t=esc(t), d=esc(d))
+        for i, (t, d) in enumerate(steps))
+    seats = ev.get('ticketsTotal')
+    seats_html = ('<div class="ev-stock mono">всего {} {}</div>'
+                  .format(seats, plural(seats, 'место', 'места', 'мест'))
+                  if isinstance(seats, int) and seats > 0 else '')
+    return ('<div class="ev-howto"><div class="ev-howto-title mono">как попасть</div>'
+            '<ol class="ev-steps">{items}</ol>'
+            '<div class="ev-buy-row">'
+            '<a class="btn ev-buy" href="{url}" target="_blank" rel="noopener">'
+            'Открыть пост на Boosty</a>{seats}</div></div>'
+            ).format(items=items, url=esc(url), seats=seats_html)
 
 
 def about_section(about, quote):
@@ -388,7 +440,13 @@ def event_json_ld(ev):
                                          'streetAddress': ev['place']}}
     if ev.get('poster'):
         block['image'] = '{}/{}'.format(SITE, ev['poster'])
-    if ev.get('ticketPrice') is not None:
+    # Продажа на стороне: в разметке указываем, где покупают, но не цену.
+    # Цену там задаёт уровень подписки, и вписать сюда своё число значило бы
+    # пообещать в выдаче сумму, которой по ссылке нет.
+    if ticket_url(ev):
+        block['offers'] = {'@type': 'Offer', 'url': ticket_url(ev),
+                           'availability': 'https://schema.org/InStock'}
+    elif ev.get('ticketPrice') is not None:
         block['offers'] = {'@type': 'Offer', 'price': ev['ticketPrice'], 'priceCurrency': 'RUB',
                            'url': SITE + '/',
                            'availability': 'https://schema.org/InStock'
@@ -522,9 +580,12 @@ def main():
             event.get('title') or 'SPOTTER LIVE', event.get('date') or '',
             event.get('place') or 'Москва')
         names = [n for _, ns in parse_lineup(event.get('lineup')) for n in ns]
-        home_desc = 'Живой концерт SPOTTER LIVE {}, {}. {}. Билет {} ₽.'.format(
-            event.get('date') or '', event.get('place') or '',
-            ', '.join(names[:12]), event.get('ticketPrice'))
+        # Цену в описание ставим только при продаже на сайте: при продаже
+        # через Boosty её задаёт уровень подписки, и число из этих полей
+        # обещало бы в выдаче сумму, которой по ссылке нет.
+        home_desc = 'Живой концерт SPOTTER LIVE {}, {}. {}.{}'.format(
+            event.get('date') or '', event.get('place') or '', ', '.join(names[:12]),
+            '' if ticket_url(event) else ' Билет {} ₽.'.format(event.get('ticketPrice')))
         home_desc = re.sub(r'\s+', ' ', home_desc).strip()[:300]
     else:
         home_title = 'SPOTTER LIVE — русский грайм вживую, в один заход'
