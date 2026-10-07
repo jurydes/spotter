@@ -33,7 +33,7 @@ import json
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = 'https://spotterlive.ru'
@@ -369,6 +369,18 @@ def plural(n, one, few, many):
     return many
 
 
+def event_is_over(ev):
+    """То же правило, что eventIsOver() в js/app.js: афиша уходит в 6 утра
+    по Москве в день endsAt. Деплой после этой даты не должен вписать
+    в готовый html прошедший концерт."""
+    day = str(ev.get('endsAt') or '').strip()
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', day):
+        return False
+    msk = timezone(timedelta(hours=3))
+    end = datetime.strptime(day, '%Y-%m-%d').replace(hour=6, tzinfo=msk)
+    return datetime.now(msk) >= end
+
+
 def ticket_url(ev):
     url = ev.get('ticketUrl') if ev else None
     return str(url).strip() if isinstance(url, str) and url.strip() else ''
@@ -557,7 +569,8 @@ def main():
     # Событие необязательно: пока концерт не объявлен, файла может не быть
     # вовсе, и это не повод валить сборку.
     events = read_json_optional('data/event.json', 'event')
-    event = next((e for e in events if e and e.get('active')), None)
+    event = next((e for e in events
+                  if e and e.get('active') and not event_is_over(e)), None)
 
     with open(os.path.join(ROOT, 'index.html'), encoding='utf-8') as f:
         shell = f.read()

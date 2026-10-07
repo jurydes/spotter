@@ -1277,7 +1277,20 @@ const TICKET_SIZE = 'вход';
 
 function activeEvent(){
   const e = CONFIG.event;
-  return e && e.active !== false ? e : null;
+  if (!e || e.active === false) return null;
+  return eventIsOver(e) ? null : e;
+}
+/* Концерт прошёл — афиша уходит с главной сама, утром следующего дня.
+
+   Без этого её надо было не забыть выключить руками, а копия события в
+   config.js (она нужна на случай, когда data/event.json не пришёл) вообще
+   живёт до следующего деплоя — и однажды вывесила бы прошедший концерт.
+   Шесть утра по Москве, а не полночь: концерт в баре идёт и после нуля. */
+function eventIsOver(e){
+  const day = typeof e.endsAt === 'string' ? e.endsAt.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const end = Date.parse(day + 'T06:00:00+03:00');
+  return Number.isFinite(end) && Date.now() >= end;
 }
 function isTicketId(id){ return id === TICKET_ID; }
 

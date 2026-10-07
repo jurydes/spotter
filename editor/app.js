@@ -114,7 +114,7 @@ const SCHEMAS = {
     summary: it => (it.title || '(без названия)') + ' · ' + (it.date || 'без даты')
                    + (it.active ? '' : ' — выключено'),
     blank: () => ({ active:false, title:'SPOTTER LIVE', date:'', dateShort:'', place:'',
-                    poster:'', age:'18+', ticketUrl:'', boostyTier:'Спартанец',
+                    endsAt:'', poster:'', age:'18+', ticketUrl:'', boostyTier:'Спартанец',
                     ticketPrice:1000, ticketsTotal:40, ticketsLeft:40,
                     lineup:[], note:'' }),
     fields: [
@@ -125,6 +125,8 @@ const SCHEMAS = {
         hint:'Как написать — так и покажется: «23 октября».' },
       { name:'dateShort', label:'Дата коротко', type:'text',
         hint:'Попадёт в название билета в заказе и в таблице: «23.10».' },
+      { name:'endsAt', label:'Снять с главной', type:'text',
+        hint:'День ПОСЛЕ концерта, строго в виде 2026-10-24. В 6 утра по Москве этого дня афиша уйдёт с главной сама, выключать руками не нужно. Пусто — висит, пока не снимешь галочку.' },
       { name:'place', label:'Место', type:'text',
         hint:'Полностью, с адресом: «бар БТК, пр. Мира, 102, корп. 1».' },
       { name:'poster', label:'Афиша', type:'image', folder:'assets/events',

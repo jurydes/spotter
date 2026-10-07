@@ -87,15 +87,36 @@ const CONFIG = {
   // },
   upcoming: null,
 
-  /* Событие — афиша на первом экране вместо последнего выпуска.
-     Живые данные в data/event.json, раздел «Событие» в редакторе.
+  /* ЗАПАСНАЯ КОПИЯ АФИШИ. Настоящий источник — data/event.json, раздел
+     «Событие» в редакторе. Копия нужна на случай, когда тот файл не пришёл:
+     без неё при сбое хостинга главная молча возвращалась к выпуску.
 
-     Здесь намеренно null, а не копия события, как у выпусков и мерча.
-     Снимок в этом файле обновляется редко и живёт до следующего деплоя,
-     а событие привязано к дате: устаревший снимок однажды вывесил бы на
-     главную афишу прошедшего концерта с кнопкой «Купить билет». Нет
-     живого файла — просто показываем выпуск, как раньше. */
-  event: null,
+     Устареть ей не даёт endsAt: утром следующего после концерта дня афиша
+     уходит с главной сама — и из живых данных, и из этой копии. null —
+     события нет. Собирается скриптом, руками не правится:
+       py -3.12 tools/sync_config_snapshot.py */
+  event: {
+    active: true,
+    title: 'SPOTTER LIVE',
+    date: '23 октября',
+    dateShort: '23.10',
+    endsAt: '2026-10-24',
+    place: 'бар БТК, пр. Мира, 102, корп. 1',
+    poster: 'assets/events/spotter-live-2026-10-23.jpg',
+    age: '18+',
+    ticketPrice: 1000,
+    ticketsTotal: 40,
+    ticketsLeft: 40,
+    ticketUrl: 'https://boosty.to/spotterlive/posts/502a2cb6-88db-4e42-b737-b7b611b7f589?share=post_link',
+    boostyTier: 'Спартанец',
+    lineup: [
+      'BOOMBAP: METOX, БРАЗИЛЕЦ, КРИП-А-КРИП, SCHOKK, DADDY BOCHA',
+      'GARAGE: FOLKPRO, DEKABRJ, SPIRITNIGHT, PLEMYANNIK, CH33',
+      'GRIME: SPIESKEY, ESKI M, SAPA13, КУКИШ С ХАСЛОМ, SHALA',
+      'DJ: DJ CHAPO, DJ 1312'
+    ],
+    note: ''
+  },
 
   // Текст о проекте — авторский, прислан Юрием. Правится только здесь.
   aboutParagraphs: [
@@ -264,17 +285,15 @@ const CONFIG = {
     }
   ],
 
-  // Порядок в этом массиве = порядок карточек в разделе «Мерч».
-  // Сверху держим то, что хотим продавать в первую очередь: сначала популярное,
-  // следом товары со съёмкой на модели — они заметно лучше продают, чем
-  // предметное фото на белом.
-  // ВАЖНО: последний товар в списке показывается на главной как «Новый дроп»,
-  // поэтому новинку дописывай в конец.
-  // Тот же принцип, что и у episodes выше: это запасной снимок, настоящий
-  // источник — data/merch.json, его правит Decap CMS (/admin).
-  // active: false — товар остаётся в данных (не теряется), но не показывается
-  // на сайте. Включается/выключается из админки (/admin) чекбоксом "Показывать
-  // на сайте" — так товары можно прятать и возвращать, ничего не удаляя.
+  // ЗАПАСНАЯ КОПИЯ ВИТРИНЫ. Настоящий источник — data/merch.json, его правит
+  // редактор. Эта копия показывается, только если data/merch.json не пришёл:
+  // хостинг сбоит, нет сети, файл открыли без сервера.
+  //
+  // Поэтому она обязана совпадать с настоящими данными. Однажды она отстала —
+  // футболки в ней остались выключенными со времён, когда продавали одно худи,
+  // — и при сбое хостинга сайт показал витрину из одного худи со старыми фото.
+  // Собирается из data/merch.json скриптом, руками не правится:
+  //   py -3.12 tools/sync_config_snapshot.py
   merch: [
     {
       id: 'rewinding-riddims',
@@ -282,11 +301,17 @@ const CONFIG = {
       category: 'Футболки',
       price: 3490,
       description: 'Оверсайз-футболка, белая. Принт спереди: рукопожатие и логотип REWINDING RIDDIMS.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
-      popular: true,
-      active: false,
-      images: ['assets/merch/rewinding-riddims.jpg']
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
+      popular: false,
+      active: true,
+      images: [
+        'assets/merch/rewinding-riddims.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
+      ]
     },
     {
       id: 'spotter-blue',
@@ -294,17 +319,21 @@ const CONFIG = {
       category: 'Футболки',
       price: 3490,
       description: 'Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в синем градиенте.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
-      popular: false,
-      active: false,
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
+      popular: true,
+      active: true,
       images: [
         'assets/merch/spotter-blue.jpg',
         'assets/merch/spotter-blue-1.jpg',
         'assets/merch/spotter-blue-2.jpg',
         'assets/merch/spotter-blue-3.jpg',
         'assets/merch/spotter-blue-4.jpg',
-        'assets/merch/spotter-blue-5.jpg'
+        'assets/merch/spotter-blue-5.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
       ]
     },
     {
@@ -313,15 +342,19 @@ const CONFIG = {
       category: 'Футболки',
       price: 3499,
       description: 'Футболка, белая. Принт спереди: логотип SPOTTER в розовом градиенте.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
       popular: false,
-      active: false,
+      active: true,
       images: [
         'assets/merch/spotter-logo-pink.jpg',
         'assets/merch/spotter-pink-1.jpg',
         'assets/merch/spotter-pink-2.jpg',
-        'assets/merch/spotter-pink-3.jpg'
+        'assets/merch/spotter-pink-3.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
       ]
     },
     {
@@ -330,11 +363,17 @@ const CONFIG = {
       category: 'Футболки',
       price: 3490,
       description: 'Оверсайз-футболка, чёрная. Принт спереди: логотип SPOTTER в зелёном градиенте.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
       popular: false,
-      active: false,
-      images: ['assets/merch/spotter-green.jpg']
+      active: true,
+      images: [
+        'assets/merch/spotter-green.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
+      ]
     },
     {
       id: 'rewinding-business-black',
@@ -342,11 +381,17 @@ const CONFIG = {
       category: 'Футболки',
       price: 3499,
       description: 'Футболка, чёрная. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
       popular: false,
-      active: false,
-      images: ['assets/merch/rewinding-business-black.jpg']
+      active: true,
+      images: [
+        'assets/merch/rewinding-business-black.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
+      ]
     },
     {
       id: 'rewinding-business-white',
@@ -354,11 +399,17 @@ const CONFIG = {
       category: 'Футболки',
       price: 3499,
       description: 'Футболка, белая. Принт спереди: пачка долларов с логотипом SPOTTER и надписью REWIND BUSINESS.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
       popular: false,
-      active: false,
-      images: ['assets/merch/rewinding-business-white.jpg']
+      active: true,
+      images: [
+        'assets/merch/rewinding-business-white.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
+      ]
     },
     {
       id: 'spotter-logo-white',
@@ -366,11 +417,17 @@ const CONFIG = {
       category: 'Футболки',
       price: 3499,
       description: 'Футболка, белая. Принт спереди: чёрный логотип SPOTTER.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 6, M: 8, L: 6, XL: 3 },
+      sizes: ['M', 'L', 'XL'],
+      stock: { M: 8, L: 6, XL: 3 },
+      preorder: false,
+      leadTime: '',
+      isNew: false,
       popular: false,
-      active: false,
-      images: ['assets/merch/spotter-logo-white.jpg']
+      active: true,
+      images: [
+        'assets/merch/spotter-logo-white.jpg',
+        'assets/merch/tshirt-size-chart.jpg'
+      ]
     },
     {
       id: 'spotter-hoodie-black',
@@ -378,18 +435,23 @@ const CONFIG = {
       category: 'Худи',
       price: 6700,
       description: 'Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.',
-      sizes: ['M','L','XL'],
-      // Наличие по размерам: партия сшита, и размеры разошлись неровно.
-      // showStock включает показ этих чисел на сайте; правятся руками.
+      sizes: ['M', 'L', 'XL'],
       stock: { M: 5, L: 9, XL: 2 },
       showStock: true,
       preorder: true,
       leadTime: 'Доставка от 14 дней',
       isNew: true,
+      popular: false,
       active: true,
       images: [
-        'assets/merch/spotter-hoodie-black-1.jpg',
-        'assets/merch/spotter-hoodie-black-2.jpg',
+        'assets/merch/photo-muagt5m9.jpg',
+        'assets/merch/photo-muagtdrz.jpg',
+        'assets/merch/photo-muagti23.jpg',
+        'assets/merch/spotter-hoodie-black-ph4.jpg',
+        'assets/merch/spotter-hoodie-black-ph3.jpg',
+        'assets/merch/spotter-hoodie-black-ph1.jpg',
+        'assets/merch/spotter-hoodie-black-ph2.jpg',
+        'assets/merch/spotter-hoodie-black-ph5.jpg',
         'assets/merch/spotter-hoodie-size-mlxl.jpg'
       ]
     }
