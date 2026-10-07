@@ -493,16 +493,19 @@ let reservedStock = {};       // 'id|размер' -> сколько занят�
 // Выключатель всей этой механики, CONFIG.reserveStock. Выключено — остаток
 // равен тиражу из админки, как было до резерва.
 function reserveEnabled(){ return CONFIG.reserveStock === true; }
-/* Тираж общий, а не по размерам.
+/* Три способа считать наличие — какой у товара, решают его поля.
 
-   На предзаказе шьётся партия целиком, и заранее неизвестно, каких размеров
-   из неё возьмут больше. Поэтому счётчик один на товар: «осталось 18 из 20»,
-   а какой размер выберут — дело покупателя. Раскладку по размерам считают
-   уже по собранным заказам, а не угадывают до старта.
+   1. По размерам (showStock: true, остатки в stock). Партия уже сшита, и
+      известно, чего сколько: M 5, L 9, XL 2. Размеры не мешают друг другу —
+      кончился XL, L продолжает продаваться. Так у худи.
+   2. Общим тиражом (editionTotal / editionLeft). Партия ещё шьётся, и какой
+      размер разберут — заранее неизвестно, поэтому счётчик один на товар.
+      Остался от прежней схемы худи; сейчас так не торгуем ни один товар.
+   3. Без счёта (ни того, ни другого). Обычный склад: остаток покупателю не
+      показывается и не ограничивает его. Так у футболок.
 
-   editionTotal / editionLeft задаются в товаре и правятся руками. Если их
-   нет — падаем на старую схему и складываем остатки по размерам, чтобы
-   товары, которые так и не перевели на тираж, не сломались. */
+   Числа во всех случаях правит продавец руками: сайт не знает, дошёл ли
+   заказ до продавца и подтверждён ли он. Это справка, а не бронь. */
 function editionTotal(product){
   if (!product) return 0;
   if (typeof product.editionTotal === 'number') return Math.max(product.editionTotal, 0);
@@ -521,33 +524,58 @@ function sumSizeStock(product){
   }, 0);
 }
 function usesEdition(product){
-  return !!product && (typeof product.editionLeft === 'number' ||
-                       typeof product.editionTotal === 'number');
+  return !!product && !showsStock(product) &&
+         (typeof product.editionLeft === 'number' ||
+          typeof product.editionTotal === 'number');
 }
-// Сколько ещё можно положить в корзину: общий остаток минус уже отложенное,
-// по всем размерам сразу.
-function availableFor(productId){
+// Наличие по размерам. Флаг явный, а не «есть ли stock»: stock заполнен и у
+// футболок, но там это внутренняя цифра продавца, покупателю её не показываем.
+function showsStock(product){ return !!product && product.showStock === true; }
+function sizeStock(product, size){
+  if (!product || !product.stock) return 0;
+  const v = product.stock[size];
+  return typeof v === 'number' ? Math.max(v, 0) : 0;
+}
+/* Потолок товара (или пары товар+размер) без учёта корзины — сам остаток.
+   Корзину он как раз и ограничивает, поэтому вычитать её здесь нельзя:
+   иначе проверка корзины считала бы её же содержимое занятым. */
+function stockCapFor(product, size){
+  if (!product) return 0;
+  if (showsStock(product)){
+    return Math.max(sizeStock(product, size) - (reservedStock[`${product.id}|${size}`] || 0), 0);
+  }
+  // Товар без счёта остатков: цифру покупателю не показываем, поэтому она и
+  // мешать ему не должна — упереться в невидимую границу и не понять, почему
+  // кнопка молчит, хуже всего. Ограничение одно, техническое: на размер
+  // одного заказа, чтобы случайный ноль не стал заказом на 500 футболок.
+  if (!usesEdition(product)) return ORDER_MAX;
+  return Math.max(editionLeft(product) - (reservedStock[product.id] || 0), 0);
+}
+// Сколько ещё можно положить в корзину. С размером — свободное место именно
+// в нём; без размера — в самом доступном из размеров, то есть ответ на
+// вопрос «есть ли вообще что брать». У товаров без наличия по размерам
+// место общее, и размер ни на что не влияет.
+function availableFor(productId, size){
   const p = findProduct(productId);
   if (!p) return 0;
-  const taken = reservedStock[productId] || 0; // резерв по товару, не по размеру
-  // Товар без тиража: остаток покупателю не показывается, поэтому и упираться
-  // в него он не должен — иначе кнопка молча перестаёт работать без всякого
-  // объяснения. Ограничение только техническое, на размер одного заказа.
-  const limit = usesEdition(p) ? editionLeft(p) : ORDER_MAX;
-  return Math.max(limit - taken - qtyInCartForProduct(productId), 0);
+  if (showsStock(p)){
+    if (size) return Math.max(stockCapFor(p, size) - qtyInCart(productId, size), 0);
+    return (p.sizes || []).reduce((max, s) => Math.max(max, availableFor(productId, s)), 0);
+  }
+  return Math.max(stockCapFor(p) - qtyInCartForProduct(productId), 0);
 }
-// Потолок для конкретного размера: то, что уже выбрано в нём, плюс свободный
-// остаток тиража. Отдельного лимита на размер больше нет.
+// Потолок для конкретного размера: то, что уже выбрано в нём, плюс свободное
+// место. Нужен корзине, где количество правят у готовой позиции.
 function capForSize(productId, size){
-  return qtyInCart(productId, size) + availableFor(productId);
+  return qtyInCart(productId, size) + availableFor(productId, size);
 }
-// Тираж как он задан в админке, без вычета резерва. Нужен таблице:
-// она знает, сколько заказано, но не знает, сколько всего выпускается.
+// Остаток размера как он задан в админке, без вычета резерва. Нужен таблице:
+// она знает, сколько заказано, но не знает, сколько всего есть.
 //
-// У товаров с общим тиражом лимита на размер нет, а таблица считает
-// заказанное именно по паре «товар + размер». Поэтому здесь возвращаем
-// null: скрипт тогда ничего не проверяет. Пересчёт резерва под общий
-// тираж — отдельная работа, и пока она не нужна, счёт ведётся руками.
+// У товара с общим тиражом лимита на размер нет, а таблица считает заказанное
+// именно по паре «товар + размер». Поэтому там возвращаем null: скрипт тогда
+// ничего не проверяет. Пересчёт резерва под общий тираж — отдельная работа,
+// и пока ни один товар так не продаётся, она не нужна.
 function stockLimitFor(productId, size){
   const p = findProduct(productId);
   if (!p || usesEdition(p)) return null;
@@ -605,8 +633,7 @@ function qtyInCart(productId, size){
   return item ? item.qty : 0;
 }
 function addToCart(productId, size, qty){
-  // Место считается по тиражу целиком: неважно, в каком размере оно занято
-  const room = availableFor(productId);
+  const room = availableFor(productId, size);
   if (room <= 0) return false;
   const add = Math.min(qty, room);
   const existing = cart.find(c => c.productId === productId && c.size === size);
@@ -1082,27 +1109,25 @@ function merchOrdered(list){
 // Магазин работает по предзаказу, поэтому вместо «в наличии» так и пишем.
 // Остаток при этом настоящий — это размер партии, и когда его остаётся мало,
 // об этом честно сообщаем отдельной строкой.
-/* Товары делятся на два вида, и почти всё поведение витрины следует из этого.
+/* Показывать остаток или нет — вопрос не оформления, а того, помогает ли
+   число покупателю.
 
-   С тиражом (у худи есть editionTotal/editionLeft) — ограниченная партия.
-   Её ещё не отшили, поэтому кнопка «Предзаказ», и остаток показывается
-   числом: «осталось 20 из 20» — это и есть повод не откладывать.
+   У худи помогает: партия ограничена и размеры в ней разошлись неровно.
+   «XL 2» — это повод решать сейчас, а не через неделю, и сразу видно, что
+   ждать подвоза именно твоего размера бессмысленно. Поэтому наличие стоит
+   по размерам, а не одним числом: суммарные «осталось 16» ничего не говорят
+   тому, кто носит XL, — из этих шестнадцати ему подходят две.
 
-   Без тиража (футболки) — обычный товар со склада. Кнопка «Купить», и
-   про остатки покупателю не сообщается вовсе: сколько именно лежит на
-   складе — не его забота, а знание «осталось 3» только нервирует.
-
-   Раз остаток не показывается, он и не должен молча мешать: упереться
-   в невидимую границу и не понять, почему кнопка ничего не делает, —
-   худшее из возможного. Поэтому у таких товаров ограничение одно,
-   техническое: не больше ORDER_MAX в один заказ, чтобы случайный ноль
-   в количестве не превратился в заказ на пятьсот футболок. */
+   У футболок не помогает: они лежат на складе и допечатываются, «осталось 3»
+   только нервирует. Поэтому у них остаток скрыт совсем — и, раз скрыт,
+   не ограничивает (см. stockCapFor). */
 function isPreorder(product){ return !!product && product.preorder === true; }
 const ORDER_MAX = 10;
+// Размер, которого осталось столько или меньше, подсвечиваем: разберут скоро.
+const LOW_STOCK = 2;
 
 function stockLabel(product){
-  // У товара без тиража остатки скрыты совсем — вызывающий код проверяет
-  // null и не рисует плашку.
+  // Остатки скрыты совсем — вызывающий код проверяет null и не рисует плашку.
   if (!usesEdition(product)) return null;
   const left = editionLeft(product);
   if (left <= 0) return { text:'всё разобрали', cls:'stock-out' };
@@ -1110,7 +1135,7 @@ function stockLabel(product){
   // оба числа. «Осталось 18» без «из 20» не говорит ни о чём — непонятно,
   // много это или мало.
   const total = editionTotal(product);
-  if (usesEdition(product) && total > 0){
+  if (total > 0){
     return {
       text: `осталось ${left} из ${total}`,
       cls: left <= Math.max(Math.round(total * 0.25), 3) ? 'stock-low' : 'stock-ok'
@@ -1118,6 +1143,36 @@ function stockLabel(product){
   }
   if (left <= 3) return { text:`осталось ${left}`, cls:'stock-low' };
   return { text:'предзаказ', cls:'stock-ok' };
+}
+// Строка наличия для карточки: либо раскладка по размерам, либо общий тираж,
+// либо ничего. Решает тип товара, вызывающий код про это не знает.
+function stockFlagHtml(product){
+  if (showsStock(product)) return sizeStockHtml(product);
+  const st = stockLabel(product);
+  return st ? `<div class="stock-flag ${st.cls}">${st.text}</div>` : '';
+}
+/* Раскладка по размерам: «M 5 · L 9 · XL 2».
+
+   Разобранный размер не выбрасываем из строки, а оставляем зачёркнутым:
+   «M 5 · L 9» без XL читается как «XL не шили», а правда в том, что его
+   разобрали — и это разные выводы для того, кто его носит. */
+function sizeStockHtml(product){
+  // Здесь именно складской остаток, а не «сколько ты ещё можешь взять»:
+  // карточка в списке говорит о товаре, а не о корзине смотрящего. Иначе
+  // отложенные себе же девять L показались бы разобранными.
+  const rows = (product.sizes || []).map(s => ({ s, n: stockCapFor(product, s) }));
+  if (!rows.length) return '';
+  if (!rows.some(r => r.n > 0)) return '<div class="stock-flag stock-out">всё разобрали</div>';
+  const chips = rows.map(r => r.n > 0
+    ? `<span class="ss ${r.n <= LOW_STOCK ? 'ss-low' : ''}">${escapeHtml(r.s)}<b>${r.n}</b></span>`
+    : `<span class="ss ss-out">${escapeHtml(r.s)}</span>`).join('');
+  return `<div class="stock-flag stock-sizes"><span class="ss-label">осталось</span>${chips}</div>`;
+}
+// Разобрано ли всё: у наличия по размерам — когда ни в одном размере нет
+// места, у тиража — когда он кончился, у остальных — никогда.
+function soldOut(product){
+  if (showsStock(product)) return availableFor(product.id) <= 0;
+  return usesEdition(product) && editionLeft(product) <= 0;
 }
 // Сколько единиц этого товара уже лежит в корзине — по всем размерам сразу
 function qtyInCartForProduct(productId){
@@ -1128,11 +1183,11 @@ function buyButtonHtml(product){
   if (qtyInCartForProduct(product.id) > 0){
     return `<button class="btn-outline buy-btn" data-open-cart="${product.id}">Посмотреть корзину</button>`;
   }
-  // Тираж разобран — кнопка не должна обещать предзаказ, которого не будет.
-  // Только для товаров с тиражом: у остальных остаток не считается и не
+  // Разобрали — кнопка не должна обещать заказ, которого не будет. Касается
+  // только товаров со счётом остатков: у футболок остаток не считается и не
   // показывается, значит и запрещать по нему нечего.
-  if (usesEdition(product) && editionLeft(product) <= 0){
-    return `<button class="btn-outline buy-btn" disabled style="opacity:.4;cursor:not-allowed;">Тираж разобрали</button>`;
+  if (soldOut(product)){
+    return `<button class="btn-outline buy-btn" disabled style="opacity:.4;cursor:not-allowed;">Всё разобрали</button>`;
   }
   // Из списка товар в корзину не кладётся: размер нужно выбрать осознанно,
   // поэтому кнопка ведёт в карточку товара, где есть размеры и количество.
@@ -1190,7 +1245,6 @@ function surveyButtonHtml(product, cls){
 // чтобы карточки везде были одного размера и вида. tagText — необязательная
 // плашка в углу ("Популярное" / "Новый дроп"), null — без плашки.
 function productCardHtml(p, tagText){
-  const st = stockLabel(p);
   return `
     <div class="merch-card" data-open-product="${p.id}">
       ${tagText ? `<div class="popular-tag">${escapeHtml(tagText)}</div>` : ''}
@@ -1198,7 +1252,7 @@ function productCardHtml(p, tagText){
       <div class="card-body">
         <h3>${escapeHtml(p.name)}</h3>
         ${priceBlockHtml(p)}
-        ${st ? `<div class="stock-flag ${st.cls}">${st.text}</div>` : ''}
+        ${stockFlagHtml(p)}
         ${leadTimeHtml(p)}
         ${buyButtonHtml(p)}
         ${surveyButtonHtml(p, 'survey-btn')}
@@ -1767,13 +1821,11 @@ function renderSurvey(){
   if (surveyStep >= total){
     const p = surveyProduct;
     const d = surveyDiscount();
-    // Тираж общий, поэтому недоступных размеров по отдельности не бывает:
-    // либо в партии ещё есть место, либо её разобрали целиком.
-    const freeLeft = p ? availableFor(p.id) : 0;
     const sizesHtml = p ? p.sizes.map(s => {
-      return `<button class="size-btn ${s===surveySize?'active':''} ${freeLeft<=0?'sold-out':''}" ${freeLeft<=0?'disabled':''} data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
+      const left = availableFor(p.id, s);
+      return `<button class="size-btn ${s===surveySize?'active':''} ${left<=0?'sold-out':''}" ${left<=0?'disabled':''} data-survey-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
     }).join('') : '';
-    const leftForSize = freeLeft;
+    const leftForSize = p && surveySize ? availableFor(p.id, surveySize) : (p ? availableFor(p.id) : 0);
     const surveyQtyCap = Math.max(leftForSize, 1);
     const canAdd = !!(p && surveySize && leftForSize > 0);
     const inCartTotal = cartTotalQty();
@@ -1912,14 +1964,22 @@ function renderSurvey(){
 
 function renderModal(){
   const p = modalProduct;
-  // Место в тираже общее на все размеры, поэтому и остаток один на всех
-  const freeLeft = availableFor(p.id);
-  const availableForSize = modalSize ? freeLeft : 0;
+  const availableForSize = modalSize ? availableFor(p.id, modalSize) : 0;
   const inCart = qtyInCartForProduct(p.id);
-  // Размеры гасятся только когда разобрали всю партию: отдельного остатка
-  // по размеру больше нет.
+  /* Остаток стоит прямо на кнопке размера, а не только в строке у количества:
+     размер выбирают здесь, и «L 9 / XL 2» решает выбор до клика. Иначе
+     остаток приходится искать перебором — нажал XL, прочитал «осталось 2»,
+     вернулся к L.
+
+     Разобранный размер не disabled: по клику кнопка заказа объясняет, что
+     этого размера нет. Кнопка, которая не нажимается и ничего не говорит,
+     выглядит сломанной. */
   const sizesHtml = p.sizes.map(s=>{
-    return `<button class="size-btn ${s===modalSize?'active':''} ${freeLeft<=0?'sold-out':''}" data-size="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
+    const left = availableFor(p.id, s);
+    const out = showsStock(p) ? left <= 0 : soldOut(p);
+    const count = showsStock(p) && left > 0
+      ? `<span class="sz-n ${left <= LOW_STOCK ? 'low' : ''}">${left}</span>` : '';
+    return `<button class="size-btn ${count ? 'has-count' : ''} ${s===modalSize?'active':''} ${out?'sold-out':''}" data-size="${escapeHtml(s)}"><span class="sz">${escapeHtml(s)}</span>${count}</button>`;
   }).join('');
 
   const images = productImages(p);
@@ -1931,10 +1991,9 @@ function renderModal(){
         </button>`).join('')}
     </div>` : '';
 
-  // Состояния основной кнопки: размер не выбран → готово к добавлению.
-  // Отдельного «нет в наличии» нет намеренно: любой размер кликабелен и
-  // ведёт к предзаказу, поэтому кнопка зовёт выбрать размер, а не сообщает
-  // тупик. Выбранный распроданный размер сюда не доходит — там свой блок.
+  // Состояния основной кнопки: размер не выбран → выбрать, выбран
+  // разобранный → сказать об этом прямо здесь. Именно кнопка и объясняет
+  // тупик, в который привёл клик по зачёркнутому размеру.
   let addLabel = 'Добавить в корзину', addDisabled = false;
   if (!modalSize){ addLabel = 'Выберите размер'; addDisabled = true; }
   else if (availableForSize <= 0){ addLabel = 'Этого размера нет'; addDisabled = true; }
@@ -1966,7 +2025,7 @@ function renderModal(){
           <button class="qty-btn" id="qtyPlus" ${modalSize && modalQty < qtyCap ? '' : 'disabled'}>+</button>
           <span class="stock-note">${!modalSize
             ? 'выберите размер'
-            : (usesEdition(p) ? `осталось: ${Math.max(availableForSize,0)}` : '')}</span>
+            : ((showsStock(p) || usesEdition(p)) ? `осталось: ${Math.max(availableForSize,0)}` : '')}</span>
         </div>
       </div>
       ${leadTimeHtml(p, 'lead-time-modal')}
@@ -2838,20 +2897,31 @@ async function handleCheckout(){
   if (cart.length === 0) return;
   goal('checkout_start', { total: cartTotalPrice() });
 
-  // Проверка по актуальному каталогу: тираж мог поменять продавец, пока
-  // товар лежал в корзине. Лимит общий на товар, поэтому идём по товарам
-  // и режем позиции, пока набранное не уложится в остаток.
+  /* Проверка по актуальному каталогу: остатки мог поменять продавец, пока
+     товар лежал в корзине.
+
+     Считаем по тем же правилам, что и витрина. У наличия по размерам место
+     у каждого размера своё: не хватило XL — режем только XL, а L уезжает
+     в заказ как есть. У общего тиража место одно на товар, и позиции режутся
+     по очереди, пока набранное не уложится в остаток. */
   const shortages = [];
   [...new Set(cart.map(c => c.productId))].forEach(id=>{
     const p = findProduct(id);
-    let room = p ? editionLeft(p) - (reservedStock[id] || 0) : 0;
-    cart.filter(c => c.productId === id).forEach(item=>{
-      const allowed = Math.max(Math.min(item.qty, room), 0);
-      if (allowed < item.qty){
-        item.qty = allowed;
-        shortages.push(item);
-      }
-      room -= allowed;
+    const mine = cart.filter(c => c.productId === id);
+    const groups = p && showsStock(p)
+      ? [...new Set(mine.map(c => c.size))].map(s => ({
+          room: stockCapFor(p, s), items: mine.filter(c => c.size === s) }))
+      : [{ room: p ? stockCapFor(p) : 0, items: mine }];
+    groups.forEach(g=>{
+      let room = g.room;
+      g.items.forEach(item=>{
+        const allowed = Math.max(Math.min(item.qty, room), 0);
+        if (allowed < item.qty){
+          item.qty = allowed;
+          shortages.push(item);
+        }
+        room -= allowed;
+      });
     });
   });
   cart = cart.filter(c => c.qty > 0);

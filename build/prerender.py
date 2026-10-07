@@ -42,6 +42,9 @@ SITE = 'https://spotterlive.ru'
 # и карточки товаров сюда не входят: это рабочие экраны, а не страницы.
 STATIC_PAGES = ['episodes', 'merch']
 
+# Порог подсветки остатка — тот же, что LOW_STOCK в js/app.js.
+LOW_STOCK = 2
+
 
 def read_json(rel, key):
     path = os.path.join(ROOT, rel)
@@ -213,14 +216,39 @@ def sorted_episodes(episodes):
     return sorted(episodes, key=key)
 
 
+def stock_flag(p):
+    """Та же строка наличия, что рисует сайт (stockFlagHtml в js/app.js).
+
+    showStock — наличие по размерам: «осталось M 5 · L 9 · XL 2», разобранный
+    размер остаётся зачёркнутым. editionLeft/editionTotal — общий тираж одним
+    числом. Ни того, ни другого — строки нет совсем, как у футболок."""
+    if p.get('showStock') is True:
+        sizes = p.get('sizes') or []
+        stock = p.get('stock') or {}
+        nums = [(s, stock.get(s) if isinstance(stock.get(s), int) else 0) for s in sizes]
+        if not nums:
+            return ''
+        if not any(n > 0 for _, n in nums):
+            return '<div class="stock-flag stock-out">всё разобрали</div>'
+        chips = ''.join(
+            '<span class="ss{low}">{s}<b>{n}</b></span>'.format(
+                low=' ss-low' if n <= LOW_STOCK else '', s=esc(s), n=n)
+            if n > 0 else '<span class="ss ss-out">{}</span>'.format(esc(s))
+            for s, n in nums)
+        return ('<div class="stock-flag stock-sizes">'
+                '<span class="ss-label">осталось</span>{}</div>').format(chips)
+    left = p.get('editionLeft')
+    total = p.get('editionTotal')
+    if isinstance(left, int) and isinstance(total, int):
+        return '<div class="stock-flag">осталось {} из {}</div>'.format(left, total)
+    return ''
+
+
 def merch_card(p):
     images = p.get('images') or []
     photo = ('<div class="ph-photo viewfinder"><img src="/{}" alt="{}" loading="lazy"></div>'
              .format(esc(images[0]), esc(p.get('name'))) if images else '')
-    left = p.get('editionLeft')
-    total = p.get('editionTotal')
-    stock = ('<div class="stock-flag">осталось {} из {}</div>'.format(left, total)
-             if isinstance(left, int) and isinstance(total, int) else '')
+    stock = stock_flag(p)
     lead = ('<div class="lead-time mono">{}</div>'.format(esc(str(p['leadTime']).strip()))
             if str(p.get('leadTime') or '').strip() else '')
     return (

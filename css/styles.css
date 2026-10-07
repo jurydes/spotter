@@ -448,6 +448,15 @@
   .stock-ok{color:var(--steel);}
   .stock-low{color:var(--warn);}
   .stock-out{color:var(--paper-dim);}
+  /* Наличие по размерам. Размер и число идут парой и строкой в одну линию:
+     взгляд ищет в ней свой размер, а не складывает сумму. Разобранный размер
+     остаётся на месте зачёркнутым — пропуск читался бы как «не шили». */
+  .stock-sizes{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;color:var(--steel);}
+  .stock-sizes .ss-label{color:var(--paper-dim);}
+  .stock-sizes .ss{white-space:nowrap;}
+  .stock-sizes .ss b{font-weight:700;color:var(--paper);margin-left:3px;}
+  .stock-sizes .ss-low b{color:var(--warn);}
+  .stock-sizes .ss-out{color:var(--paper-dim);text-decoration:line-through;opacity:0.6;}
   .survey-btn{width:100%;text-align:center;margin-top:8px;padding:11px 6px;font-size:12px;letter-spacing:0.02em;border-color:var(--accent-light);color:var(--accent-light);}
   .survey-btn:hover{background:var(--accent-light);color:var(--ink);}
   /* Цена и плашка скидки рядом. Второй цены в ценнике нет намеренно:
@@ -510,6 +519,15 @@
      сообщить о поступлении, поэтому не disabled, а приглушённый вид. */
   .size-btn.sold-out{color:var(--paper-dim);text-decoration:line-through;opacity:0.55;}
   .size-btn.sold-out.active{border-color:var(--warn);color:var(--warn);opacity:1;}
+  /* Остаток прямо на кнопке размера: мелким и под буквой — выбирают размер,
+     число при нём уточнение. Так видно всю раскладку сразу, без перебора. */
+  .size-btn.has-count{
+    display:inline-flex;flex-direction:column;align-items:center;gap:2px;
+    line-height:1.1;padding:6px 12px;
+  }
+  .size-btn .sz-n{font-size:10px;letter-spacing:0.04em;color:var(--paper-dim);}
+  .size-btn .sz-n.low{color:var(--warn);}
+  .size-btn.active .sz-n{color:var(--accent-light);}
 
   /* галерея фото товара */
   .modal-media{display:flex;flex-direction:column;min-width:0;}

@@ -368,14 +368,14 @@ const CONFIG = {
       category: 'Худи',
       price: 6700,
       description: 'Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.',
-      sizes: ['S','M','L','XL'],
-      stock: { S: 5, M: 5, L: 5, XL: 5 },
-      // Тираж общий на все размеры: шьётся партия целиком, и заранее
-      // неизвестно, каких размеров из неё возьмут больше. editionLeft
-      // правится руками по мере заказов.
-      editionTotal: 20,
-      editionLeft: 18,
-      popular: true,
+      sizes: ['M','L','XL'],
+      // Наличие по размерам: партия сшита, и размеры разошлись неровно.
+      // showStock включает показ этих чисел на сайте; правятся руками.
+      stock: { M: 5, L: 9, XL: 2 },
+      showStock: true,
+      preorder: true,
+      leadTime: 'Доставка от 14 дней',
+      isNew: true,
       active: true,
       images: [
         'assets/merch/spotter-hoodie-black-1.jpg',
