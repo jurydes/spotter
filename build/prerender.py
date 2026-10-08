@@ -408,16 +408,12 @@ def event_howto(ev):
         '<span class="ev-step-text"><b>{t}</b>'
         '<span class="ev-step-note">{d}</span></span></li>'.format(n=i + 1, t=esc(t), d=esc(d))
         for i, (t, d) in enumerate(steps))
-    seats = ev.get('ticketsTotal')
-    seats_html = ('<div class="ev-stock mono">всего {} {}</div>'
-                  .format(seats, plural(seats, 'место', 'места', 'мест'))
-                  if isinstance(seats, int) and seats > 0 else '')
     return ('<div class="ev-howto"><div class="ev-howto-title mono">как попасть</div>'
             '<ol class="ev-steps">{items}</ol>'
             '<div class="ev-buy-row">'
             '<a class="btn ev-buy" href="{url}" target="_blank" rel="noopener">'
-            'Открыть пост на Boosty</a>{seats}</div></div>'
-            ).format(items=items, url=esc(url), seats=seats_html)
+            'Открыть пост на Boosty</a></div></div>'
+            ).format(items=items, url=esc(url))
 
 
 def about_section(about, quote):

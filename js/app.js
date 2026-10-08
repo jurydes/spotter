@@ -850,9 +850,9 @@ function eventHeroHtml(ev){
      Boosty, видит пост с условиями и возвращается выяснять, почему ему
      ничего не доступно.
 
-     Остаток при этом не показываем: сколько разобрали, знает Boosty, а не
-     сайт. «Осталось 40 из 40», которое никогда не меняется, хуже, чем
-     ничего — поэтому вместо счётчика просто размер зала. */
+     Число мест при этом не показываем вовсе: сколько разобрали, знает
+     Boosty, а не сайт, и «осталось 40 из 40», которое никогда не меняется,
+     хуже, чем ничего. Голое «всего 40 мест» тоже убрано — по просьбе. */
   const howTo = eventHowToHtml(ev);
 
   return `
@@ -888,7 +888,6 @@ function eventHowToHtml(ev){
   const url = ev && typeof ev.ticketUrl === 'string' ? ev.ticketUrl.trim() : '';
   if (!url) return '';
   const tier = ev.boostyTier ? String(ev.boostyTier).trim() : '';
-  const seats = Number(ev.ticketsTotal);
   // Шаги описаны здесь, а не в данных: это не текст про конкретный концерт,
   // а то, как у нас вообще устроен вход. Меняется только уровень подписки.
   const steps = [
@@ -913,9 +912,6 @@ function eventHowToHtml(ev){
       <div class="ev-buy-row">
         <a class="btn ev-buy" href="${escapeHtml(url)}" target="_blank" rel="noopener"
            data-goal="ticket_boosty">Открыть пост на Boosty</a>
-        ${Number.isFinite(seats) && seats > 0
-          ? `<div class="ev-stock mono">всего ${seats} ${plural(seats, 'место', 'места', 'мест')}</div>`
-          : ''}
       </div>
     </div>`;
 }
