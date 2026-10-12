@@ -438,7 +438,7 @@ const CONFIG = {
       sizes: ['M', 'L', 'XL'],
       stock: { M: 5, L: 9, XL: 2 },
       showStock: true,
-      preorder: true,
+      preorder: false,
       leadTime: 'Доставка от 14 дней',
       isNew: true,
       popular: false,

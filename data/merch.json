@@ -220,7 +220,7 @@
       "id": "spotter-hoodie-black",
       "description": "Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.",
       "category": "Худи",
-      "preorder": true,
+      "preorder": false,
       "isNew": true,
       "leadTime": "Доставка от 14 дней"
     }
