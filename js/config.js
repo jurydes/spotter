@@ -436,7 +436,7 @@ const CONFIG = {
       price: 6700,
       description: 'Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.',
       sizes: ['M', 'L', 'XL'],
-      stock: { M: 5, L: 9, XL: 2 },
+      stock: { M: 4, L: 9, XL: 2 },
       showStock: true,
       preorder: false,
       leadTime: 'Доставка от 14 дней',
