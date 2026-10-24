@@ -737,6 +737,7 @@ function parseRoute(){
     case 'artist':   return { tab:'artist', artist: decodeURIComponent(tail) };
     case 'episode':  return { tab:'episodes', episode: decodeURIComponent(tail) };
     case 'product':  return { tab:'merch', product: decodeURIComponent(tail) };
+    case 'socials':  return { tab:'socials' };
     default:         return { tab:'home' };
   }
 }
@@ -1023,6 +1024,77 @@ function upcomingHtml(){
         ).join('<span class="artist-sep">·</span>')}</div>` : ''}
         ${u.note ? `<p class="lead">${escapeHtml(u.note)}</p>` : ''}
         ${u.link ? `<a class="btn" href="${escapeHtml(u.link)}" target="_blank" rel="noopener">Подробности</a>` : ''}
+      </div>
+    </div>
+  </section>`;
+}
+
+/* Вкладка «Соцсети»: сверху подписка на Boosty, ниже площадки. */
+function renderSocials(){
+  return boostyHtml(true) + channelsHtml();
+}
+
+/* Площадки — строками во всю ширину: крупное название и ник. */
+function channelsHtml(){
+  const list = (CONFIG.socials || []).filter(s => s && s.url && s.name);
+  if (!list.length) return '';
+  const rows = list.map(s => `
+      <li><a class="channel" href="${escapeHtml(s.url)}" target="_blank" rel="noopener"
+             data-goal="social_open" data-goal-where="${escapeHtml(s.id || s.name)}">
+        <span class="channel-name">${escapeHtml(s.name)}</span>
+        <span class="channel-handle mono">${escapeHtml(s.handle || '')}<span class="channel-arrow" aria-hidden="true">↗</span></span>
+      </a></li>`).join('');
+  return `
+  <section class="channels-section">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Соцсети</h2>
+        <span class="section-note">Подписывайтесь там, где удобно</span>
+      </div>
+      <ul class="channels">${rows}</ul>
+    </div>
+  </section>`;
+}
+
+/* Boosty. Уровни накопительные — каждый включает всё из предыдущих, —
+   поэтому они стоят лестницей: ступень выше, бонусов больше, а на каждой
+   написано только то, что она добавляет. Ступень ведёт сразу к оформлению
+   своего уровня на Boosty. */
+function boostyHtml(first){
+  const b = CONFIG.boosty;
+  const tiers = b && b.url ? (b.tiers || []).filter(t => t && t.name) : [];
+  if (!tiers.length) return '';
+  const base = b.url.replace(/\/+$/, '');
+  const steps = tiers.map((t, i) => {
+    const href = t.id ? `${base}/purchase/${encodeURIComponent(t.id)}?ssource=DIRECT&share=subscription_link` : base;
+    const prev = i > 0 ? `<span class="tier-inherit mono">всё из «${escapeHtml(tiers[i - 1].name)}», плюс</span>` : '';
+    return `
+      <li style="--i:${i}"><a class="tier${t.featured ? ' is-featured' : ''}" href="${escapeHtml(href)}" target="_blank" rel="noopener"
+             data-goal="boosty_open" data-goal-where="${escapeHtml(t.name)}">
+        ${t.featured ? `<span class="tier-flag mono">${escapeHtml(t.featured)}</span>` : ''}
+        <span class="tier-name">${escapeHtml(t.name)}</span>
+        ${Number(t.price) ? `<span class="tier-price mono">${formatPrice(Number(t.price))}<small> в месяц</small></span>` : ''}
+        ${prev}
+        <ul class="tier-perks">${(t.perks || []).map(p =>
+          // «2-го» в узкой колонке рвалось на «2-» и «го» — дефис после цифры неразрывный
+          `<li>${escapeHtml(p).replace(/(\d)-/g, '$1‑')}</li>`).join('')}</ul>
+        <span class="tier-cta mono">Оформить<span aria-hidden="true"> →</span></span>
+      </a></li>`;
+  }).join('');
+  return `
+  <section class="boosty-section"${first ? ' style="border-top:none;"' : ''}>
+    <div class="wrap">
+      <div class="boosty-head">
+        <div>
+          <h2>Boosty</h2>
+          <p class="lead">Подписка — это поддержка SPOTTER и доступ туда, куда без неё не попасть: полные фотоотчёты, архив стримов, закрытые съёмки.</p>
+        </div>
+        <a class="btn" href="${escapeHtml(base)}" target="_blank" rel="noopener"
+           data-goal="boosty_open" data-goal-where="button">Открыть Boosty</a>
+      </div>
+      <div class="tiers-wrap">
+        <p class="tiers-note mono"><b>Каждый следующий уровень включает всё из&nbsp;предыдущих<span class="tiers-note-arrow" aria-hidden="true">↗</span></b>На ступени — только то, что она добавляет.</p>
+        <ol class="tiers">${steps}</ol>
       </div>
     </div>
   </section>`;
@@ -1611,7 +1683,10 @@ function renderLoadingTab(){
 
 function render(){
   const app = document.getElementById('app');
-  if (!contentReady()) app.innerHTML = showSkeleton ? renderLoadingTab() : '';
+  // Соцсети от загрузки данных не зависят — ссылки и уровни лежат в config.js,
+  // поэтому вкладка рисуется сразу, без заглушки.
+  if (currentTab === 'socials') app.innerHTML = renderSocials();
+  else if (!contentReady()) app.innerHTML = showSkeleton ? renderLoadingTab() : '';
   else if (currentTab === 'home') app.innerHTML = renderHome();
   else if (currentTab === 'episodes') app.innerHTML = renderEpisodes();
   else if (currentTab === 'merch') app.innerHTML = renderMerch();
@@ -1714,11 +1789,12 @@ function bindDynamicHandlers(){
       openDrawer();
     });
   });
-  // Уход за билетом на сторону. Единственная точка, где видно, сколько
-  // людей афиша реально довела до покупки: дальше начинается Boosty,
-  // и оттуда к нам ничего не возвращается.
+  // Уходы на сторону: за билетом, в соцсеть, на Boosty. Единственная точка,
+  // где видно, сколько людей сайт туда довёл: обратно оттуда ничего не
+  // возвращается. data-goal-where — куда именно (какой канал, какой уровень).
   document.querySelectorAll('[data-goal]').forEach(el=>{
-    el.addEventListener('click', ()=>goal(el.dataset.goal));
+    el.addEventListener('click', ()=>goal(el.dataset.goal,
+      el.dataset.goalWhere ? { where: el.dataset.goalWhere } : undefined));
   });
   document.querySelectorAll('[data-zoom-poster]').forEach(el=>{
     el.addEventListener('click', ()=>{

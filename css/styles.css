@@ -481,6 +481,121 @@
   .upcoming-body .artists{font-family:var(--f-mono);font-size:13px;text-transform:uppercase;margin-bottom:12px;}
   .upcoming-body .lead{margin-bottom:16px;}
 
+  /* ================= СОЦСЕТИ =================
+     Площадки — строками во всю ширину: название крупно слева, ник справа.
+     При наведении строка заливается фирменным синим слева направо. */
+  .channels{list-style:none;margin:0;padding:0;border-top:1px solid var(--line);}
+  .channels li{border-bottom:1px solid var(--line);}
+  .channel{
+    position:relative;isolation:isolate;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;gap:24px;padding:18px 4px;
+  }
+  .channel::before{
+    content:'';position:absolute;inset:0;z-index:-1;background:var(--accent);
+    transform:scaleX(0);transform-origin:left;transition:transform .35s cubic-bezier(.2,.7,.2,1);
+  }
+  .channel:hover::before,.channel:focus-visible::before{transform:scaleX(1);}
+  .channel-name{
+    font-family:var(--f-display);font-weight:900;text-transform:uppercase;
+    font-size:clamp(34px,5.4vw,68px);line-height:1;letter-spacing:-0.01em;
+    transition:transform .35s cubic-bezier(.2,.7,.2,1);
+  }
+  .channel:hover .channel-name,.channel:focus-visible .channel-name{transform:translateX(14px);}
+  .channel-handle{
+    display:flex;align-items:center;gap:12px;justify-content:flex-end;
+    font-size:13px;color:var(--paper-dim);white-space:nowrap;transition:color .2s;
+  }
+  .channel-arrow{font-size:20px;color:var(--accent-light);transition:color .2s, transform .35s cubic-bezier(.2,.7,.2,1);}
+  .channel:hover .channel-handle,.channel:hover .channel-arrow,
+  .channel:focus-visible .channel-handle,.channel:focus-visible .channel-arrow{color:var(--paper);}
+  .channel:hover .channel-arrow{transform:translate(3px,-3px);}
+  .channel:focus-visible{outline-offset:-2px;}
+  @media (max-width:760px){
+    .channel{grid-template-columns:minmax(0,1fr);gap:6px;padding:16px 0;}
+    .channel-handle{justify-content:flex-start;}
+    .channel-arrow{font-size:16px;}
+  }
+
+  /* ================= BOOSTY =================
+     Уровни накопительные — и стоят лестницей: каждая ступень выше
+     предыдущей на один шаг, низ у всех общий. Высоту ступени задаёт
+     --i из разметки; базовая высота с запасом под самый длинный список. */
+  .boosty-head{
+    display:flex;align-items:flex-end;justify-content:space-between;gap:20px 40px;
+    flex-wrap:wrap;margin-bottom:36px;
+  }
+  .boosty-head h2{font-size:clamp(26px,3.4vw,37px);margin-bottom:12px;}
+  .boosty-head .lead{color:var(--paper-dim);max-width:58ch;margin:0;font-size:17px;}
+  /* Подпись про накопительные уровни стоит в пустом углу над нижними
+     ступенями — там, где лестница начинает подниматься; стрелка смотрит
+     вверх по ступеням. Узко — обычной строкой над списком. */
+  .tiers-wrap{position:relative;}
+  .tiers-note{
+    position:absolute;top:0;left:0;width:calc(40% - 24px);margin:0;
+    font-size:13px;line-height:1.55;color:var(--paper-dim);letter-spacing:0.02em;
+  }
+  .tiers-note b{display:block;color:var(--paper);font-weight:700;font-size:14px;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;}
+  .tiers-note-arrow{display:inline-block;margin-left:8px;color:var(--accent-light);font-size:18px;line-height:1;}
+  .tiers{
+    list-style:none;margin:0;padding:0;
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;
+    border-bottom:1px solid var(--line);
+  }
+  .tiers > li{display:flex;min-width:0;}
+  .tier{
+    --step:38px;
+    flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;
+    min-height:calc(318px + var(--i) * var(--step));
+    padding:20px 18px 18px;background:var(--surface);
+    border:1px solid var(--line);border-bottom:none;margin-left:-1px;
+    transition:background .2s, border-color .2s;
+  }
+  .tiers > li:first-child .tier{margin-left:0;}
+  .tier:hover{background:var(--surface-2);border-color:var(--steel);position:relative;z-index:1;}
+  .tier-flag{
+    align-self:flex-start;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+    background:var(--paper);color:var(--accent);padding:3px 7px;margin-bottom:4px;font-weight:700;
+  }
+  .tier-name{
+    font-family:var(--f-display);font-weight:900;text-transform:uppercase;
+    font-size:clamp(19px,1.9vw,25px);line-height:1.1;overflow-wrap:anywhere;
+  }
+  .tier-price{font-size:15px;font-weight:700;color:var(--paper);}
+  .tier-price small{font-size:12px;font-weight:400;color:var(--paper-dim);}
+  .tier-inherit{font-size:11px;letter-spacing:0.04em;color:var(--steel);margin-top:8px;}
+  .tier-perks{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:7px;}
+  .tier-perks li{font-size:14px;line-height:1.35;color:var(--paper-dim);padding-left:14px;position:relative;}
+  .tier-perks li::before{content:'+';position:absolute;left:0;color:var(--accent-light);font-family:var(--f-mono);}
+  .tier-cta{
+    margin-top:auto;padding-top:14px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;
+    color:var(--accent-light);
+  }
+  .tier.is-featured{background:var(--accent);border-color:var(--accent);}
+  .tier.is-featured:hover{background:var(--accent-dim);border-color:var(--accent-dim);}
+  .tier.is-featured .tier-price small,
+  .tier.is-featured .tier-inherit,
+  .tier.is-featured .tier-perks li,
+  .tier.is-featured .tier-perks li::before,
+  .tier.is-featured .tier-cta{color:var(--paper);}
+  /* Узко пять ступеней не встают — список сверху вниз, без лестницы.
+     Порядок тот же, подсвеченный уровень остаётся залитым. */
+  @media (max-width:860px){
+    .tiers-note{position:static;width:auto;margin-bottom:16px;}
+    .tiers-note-arrow{display:none;}
+    .tiers{grid-template-columns:1fr;border-bottom:none;}
+    .tier{
+      min-height:0;margin-left:0;margin-top:-1px;border-bottom:1px solid var(--line);
+      display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 16px;
+      padding:16px 16px 14px;
+    }
+    .tier-flag,.tier-inherit,.tier-perks{grid-column:1 / -1;}
+    .tier-flag{justify-self:start;}
+    .tier-price{text-align:right;}
+    .tier-inherit{margin-top:2px;}
+    .tier-cta{display:none;}
+  }
+
   /* ================= MERCH ================= */
   /* Порядок выпусков и «случайный выпуск» — справа от заголовка раздела */
   .head-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
@@ -935,7 +1050,7 @@
   .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
   footer a{font-family:var(--f-mono);font-size:13px;color:var(--paper-dim);}
   footer a:hover{color:var(--accent-light);}
-  .footer-links{display:flex;gap:20px;}
+  .footer-links{display:flex;gap:8px 20px;flex-wrap:wrap;}
 
   .hidden{display:none !important;}
   

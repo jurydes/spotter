@@ -91,7 +91,9 @@ function sendHit(){
      order_done      — заказ оформлен (с суммой)
      episode_open    — ушёл смотреть выпуск
      share           — поделился ссылкой
-     ticket_boosty   — ушёл с афиши за билетом на Boosty                  */
+     ticket_boosty   — ушёл с афиши за билетом на Boosty
+     social_open     — ушёл в соцсеть из блока «Каналы» (where: youtube, tiktok…)
+     boosty_open     — ушёл на Boosty из блока подписки (where: уровень или button) */
 function goal(name, params){
   const id = metrikaId();
   if (!id || !window.ym) return;

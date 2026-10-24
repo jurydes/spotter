@@ -118,6 +118,35 @@ const CONFIG = {
   ],
   aboutQuote: `Талант не требует разрешения — ему нужна только платформа.`,
 
+  // Площадки на вкладке «Соцсети» — в том же порядке, что здесь.
+  socials: [
+    { id: 'youtube',   name: 'YouTube',   handle: '@spotterrussia', url: 'https://www.youtube.com/@spotterrussia' },
+    { id: 'tiktok',    name: 'TikTok',    handle: '@spotterrussia', url: 'https://www.tiktok.com/@spotterrussia' },
+    { id: 'telegram',  name: 'Telegram',  handle: '@spotterglobal', url: 'https://t.me/spotterglobal' },
+    { id: 'instagram', name: 'Instagram', handle: '@spotterrussia', url: 'https://www.instagram.com/spotterrussia/' }
+  ],
+
+  // Уровни подписки на Boosty — как на самой странице boosty.to/spotterlive.
+  // Уровни накопительные: каждый включает всё из предыдущих, поэтому в perks
+  // только то, что уровень добавляет. id — номер уровня на Boosty, по нему
+  // ссылка ведёт сразу к оформлению этого уровня. featured — уровень, который
+  // подсвечиваем (с него начинается проходка на съёмки).
+  boosty: {
+    url: 'https://boosty.to/spotterlive',
+    tiers: [
+      { id: 3767847, name: 'Янгер', price: 189,
+        perks: ['Поддержка проекта', 'Полные фотоотчёты со съёмок'] },
+      { id: 3767857, name: 'Бигман', price: 404,
+        perks: ['Архив стримов', 'Ранняя информация о ближайших ивентах', 'Эксклюзив со съёмок 1-го уровня'] },
+      { id: 3767862, name: 'Спартанец', price: 1111, featured: 'Проходка на съёмки',
+        perks: ['Проходка на закрытые съёмки', 'Закрытый чат', 'Эксклюзив со съёмок 2-го уровня'] },
+      { id: 3767867, name: 'GOAT', price: 3500,
+        perks: ['Подарочный мерч', 'Имя в титрах выпусков на YouTube', 'Эксклюзив со съёмок 3-го уровня'] },
+      { id: 3768516, name: 'GOD', price: 7777,
+        perks: ['Самый ранний доступ ко всем новым материалам'] }
+    ]
+  },
+
   // Сезоны подтвердились через реальные названия видео на YouTube (проверил через поиск).
   // У проекта два сезона: оригинальный без официального названия (условно "Сезон 1" —
   // сами они так не подписывали) и официально озаглавленный "CHAPTER II".

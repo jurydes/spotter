@@ -475,8 +475,10 @@ def json_ld(episodes):
                        'инструменталов, в один заход, без десятков дублей.',
         'sameAs': [
             'https://www.youtube.com/@spotterrussia',
+            'https://www.tiktok.com/@spotterrussia',
             'https://www.instagram.com/spotterrussia/',
             'https://t.me/spotterglobal',
+            'https://boosty.to/spotterlive',
         ],
     }
     items = []
