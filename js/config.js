@@ -95,28 +95,7 @@ const CONFIG = {
      уходит с главной сама — и из живых данных, и из этой копии. null —
      события нет. Собирается скриптом, руками не правится:
        py -3.12 tools/sync_config_snapshot.py */
-  event: {
-    active: true,
-    title: 'SPOTTER LIVE',
-    date: '23 октября',
-    dateShort: '23.10',
-    endsAt: '2026-10-24',
-    place: 'бар БТК, пр. Мира, 102, корп. 1',
-    poster: 'assets/events/spotter-live-2026-10-23.jpg',
-    age: '18+',
-    ticketPrice: 1000,
-    ticketsTotal: 40,
-    ticketsLeft: 40,
-    ticketUrl: 'https://boosty.to/spotterlive/posts/502a2cb6-88db-4e42-b737-b7b611b7f589?share=post_link',
-    boostyTier: 'Спартанец',
-    lineup: [
-      'BOOMBAP: METOX, БРАЗИЛЕЦ, КРИП-А-КРИП, SCHOKK, DADDY BOCHA',
-      'GARAGE: FOLKPRO, DEKABRJ, SPIRITNIGHT, PLEMYANNIK, CH33',
-      'GRIME: SPIESKEY, ESKI M, SAPA13, КУКИШ С ХАСЛОМ, SHALA',
-      'DJ: DJ CHAPO, DJ 1312'
-    ],
-    note: ''
-  },
+  event: null,
 
   // Текст о проекте — авторский, прислан Юрием. Правится только здесь.
   aboutParagraphs: [
@@ -436,7 +415,7 @@ const CONFIG = {
       price: 6700,
       description: 'Худи, чёрное. Принт на груди: логотип SPOTTER с синей обводкой.',
       sizes: ['M', 'L', 'XL'],
-      stock: { M: 4, L: 9, XL: 2 },
+      stock: { M: 3, L: 9, XL: 2 },
       showStock: true,
       preorder: false,
       leadTime: 'Доставка от 14 дней',
