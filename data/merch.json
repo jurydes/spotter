@@ -202,7 +202,8 @@
       "stock": {
         "M": 3,
         "L": 7,
-        "XL": 3
+        "XL": 3,
+        "2XL": 1
       },
       "showStock": true,
       "images": [

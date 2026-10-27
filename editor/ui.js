@@ -146,7 +146,11 @@ function fieldHtml(f, item, i){
         >${esc((v || []).join('\n'))}</textarea>`;
       break;
     case 'object':
-      control = `<div class="obj">${(f.keys || []).map(k=>`
+      // keysFrom — ячейки по другому полю записи: остатки — по списку размеров,
+      // чтобы новый размер не приходилось добавлять в код.
+      const keys = f.keysFrom && Array.isArray(item[f.keysFrom]) && item[f.keysFrom].length
+        ? item[f.keysFrom] : (f.keys || []);
+      control = `<div class="obj">${keys.map(k=>`
         <label class="obj-cell"><span>${esc(k)}</span>
           <input type="number" data-obj="${f.name}|${k}" value="${esc((v||{})[k] ?? 0)}"></label>`).join('')}</div>`;
       break;
@@ -260,6 +264,8 @@ function bindEvents(){
     }
   });
   $('#list').addEventListener('change', e=>{
+    // Список размеров дописан — перерисовываем, чтобы появились ячейки остатков.
+    if (e.target.dataset.list === 'sizes'){ render(); return; }
     if (e.target.type === 'checkbox' && e.target.dataset.field){
       item()[e.target.dataset.field] = e.target.checked;
       touch();

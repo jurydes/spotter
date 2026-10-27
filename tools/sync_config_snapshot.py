@@ -45,6 +45,12 @@ def js_string(s):
                    .replace('\n', '\\n')) + "'"
 
 
+def js_key(k):
+    # Ключ вроде «2XL» начинается с цифры — без кавычек это ошибка в JS,
+    # и config.js не загрузился бы целиком.
+    return k if re.match(r'^[A-Za-z_$][A-Za-z0-9_$]*$', k) else js_string(k)
+
+
 def lit(v, ind):
     pad = '  ' * ind
     if isinstance(v, str):
@@ -64,8 +70,8 @@ def lit(v, ind):
     if isinstance(v, dict):
         flat = all(not isinstance(x, (dict, list)) for x in v.values())
         if flat and len(v) <= 4:
-            return '{ ' + ', '.join('{}: {}'.format(k, lit(x, 0)) for k, x in v.items()) + ' }'
-        inner = ',\n'.join('{}  {}: {}'.format(pad, k, lit(x, ind + 1)) for k, x in v.items())
+            return '{ ' + ', '.join('{}: {}'.format(js_key(k), lit(x, 0)) for k, x in v.items()) + ' }'
+        inner = ',\n'.join('{}  {}: {}'.format(pad, js_key(k), lit(x, ind + 1)) for k, x in v.items())
         return '{\n' + inner + '\n' + pad + '}'
     raise TypeError(type(v))
 
