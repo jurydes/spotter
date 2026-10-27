@@ -468,18 +468,41 @@
     .ep-card.ep-focused{box-shadow:0 0 0 6px var(--ink), 0 0 0 8px var(--accent);}
   }
 
-  /* ================= АНОНС ================= */
-  .upcoming-section{padding:44px 0;}
-  .upcoming{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;}
-  .upcoming-tag{
-    font-size:12px;letter-spacing:0.12em;color:var(--accent-light);
-    border:1px solid var(--accent);padding:4px 9px;flex-shrink:0;margin-top:4px;
+  /* ================= АНОНС СЛЕДУЮЩЕГО ВЫПУСКА =================
+     Состав крупно; каждое имя сначала закрыто синей плашкой, плашки по
+     очереди съезжают вправо, когда блок доходит до экрана (.is-in ставит
+     revealUpcoming). Без анимации — имена видны сразу. */
+  .upcoming-section .wrap{width:100%;}
+  .up-head{
+    display:flex;justify-content:space-between;align-items:baseline;gap:8px 24px;flex-wrap:wrap;
+    font-size:13px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:22px;
   }
-  .upcoming-body{min-width:0;flex:1;}
-  .upcoming-body h2{font-size:clamp(22px,2.6vw,33px);margin-bottom:8px;}
-  .upcoming-meta{font-size:13px;color:var(--paper-dim);margin-bottom:10px;letter-spacing:0.04em;}
-  .upcoming-body .artists{font-family:var(--f-mono);font-size:13px;text-transform:uppercase;margin-bottom:12px;}
-  .upcoming-body .lead{margin-bottom:16px;}
+  .up-tag{display:inline-flex;align-items:center;gap:8px;color:var(--accent-light);}
+  .up-tag .dot{width:7px;height:7px;border-radius:50%;background:var(--accent-light);animation:up-blink 1.6s steps(1) infinite;}
+  @keyframes up-blink{50%{opacity:0;}}
+  .up-meta{color:var(--paper-dim);}
+  .hero .up-names{
+    font-size:clamp(34px,6.6vw,92px);font-weight:900;line-height:1.08;overflow-wrap:normal;
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .32em;margin-bottom:30px;
+  }
+  .up-name{position:relative;display:inline-block;white-space:nowrap;}
+  .up-name::after{
+    content:'';position:absolute;left:-.06em;right:-.06em;top:.12em;bottom:.08em;background:var(--accent);
+    transform-origin:right;transition:transform .55s cubic-bezier(.7,0,.2,1);
+    transition-delay:calc(var(--n) * 140ms + 150ms);
+  }
+  .upcoming-section.is-in .up-name::after{transform:scaleX(0);}
+  a.up-name:hover .up-name-text{color:var(--accent-light);}
+  .up-sep{color:var(--accent-light);font-weight:400;}
+  .up-foot{
+    display:flex;justify-content:space-between;align-items:center;gap:16px 32px;flex-wrap:wrap;
+    border-top:1px solid var(--line);padding-top:22px;
+  }
+  .up-note{margin:0;color:var(--paper-dim);font-size:17px;max-width:52ch;}
+  @media (prefers-reduced-motion: reduce){
+    .up-name::after{display:none;}
+    .up-tag .dot{animation:none;}
+  }
 
   /* ================= СОЦСЕТИ =================
      Площадки — строками во всю ширину: название крупно слева, ник справа.

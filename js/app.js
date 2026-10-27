@@ -938,10 +938,11 @@ function renderHome(){
   const chapterTag = chapterLabel(latest.chapter);
   const latestBadge = latest.number != null ? `${chapterTag} · EP.${String(latest.number).padStart(2,'0')}` : chapterTag;
 
-  // Объявлено событие — первый экран отдаём афише. Всё, что ниже (бегущая
-  // строка, «О проекте», мерч), остаётся на месте.
+  // Объявлено событие — первый экран отдаём афише; иначе, если заполнен
+  // анонс, — анонсу следующего выпуска; иначе — последнему выпуску. Всё,
+  // что ниже (бегущая строка, «О проекте», мерч), остаётся на месте.
   const ev = activeEvent();
-  const firstScreen = ev ? eventHeroHtml(ev) : `
+  const firstScreen = ev ? eventHeroHtml(ev) : upcomingHtml() || `
   <section class="hero" style="border-top:none;">
     <div class="wrap hero-grid">
       <div class="hero-text">
@@ -963,8 +964,6 @@ function renderHome(){
   ${firstScreen}
 
   ${tickerHtml()}
-
-  ${upcomingHtml()}
 
   <section>
     <div class="wrap about-cols">
@@ -1007,26 +1006,57 @@ function tickerHtml(){
   return `<div class="ticker"><div class="ticker-track">${line}${line}</div></div>`;
 }
 
-// Анонс следующего выпуска. Пока CONFIG.upcoming пуст — блока просто нет.
+/* Анонс следующего выпуска — занимает первый экран главной вместо
+   последнего выпуска. Пока CONFIG.upcoming пуст, первый экран обычный.
+
+   Состав крупно, и каждое имя сначала закрыто синей плашкой, как
+   «засекреченный» список: плашки по очереди съезжают, когда блок доходит
+   до экрана. Сами имена в разметке есть всегда — плашки рисует CSS, так
+   что поисковик, читалка экрана и человек с отключённой анимацией видят
+   состав сразу.
+
+   Имя ведёт на страницу участника, только если она у нас есть: у новичков
+   выпусков ещё нет, и ссылка показала бы «Участник не найден». */
 function upcomingHtml(){
   const u = CONFIG.upcoming;
   if (!u || !u.title) return '';
+  const known = new Set(allArtists());
+  const names = (u.lineup || []).map((a, i) => {
+    const name = canonicalArtist(a);
+    const inner = `<span class="up-name-text">${escapeHtml(name)}</span>`;
+    return known.has(name)
+      ? `<a class="up-name" style="--n:${i}" href="#/artist/${artistSlug(name)}">${inner}</a>`
+      : `<span class="up-name" style="--n:${i}">${inner}</span>`;
+  }).join('<span class="up-sep" aria-hidden="true">/</span>');
   const meta = [u.date, u.place].filter(Boolean).map(escapeHtml).join(' · ');
+  const isTelegram = /t\.me\//i.test(u.link || '');
   return `
-  <section class="upcoming-section">
-    <div class="wrap upcoming">
-      <div class="upcoming-tag mono">СКОРО</div>
-      <div class="upcoming-body">
-        <h2>${escapeHtml(u.title)}</h2>
-        ${meta ? `<div class="upcoming-meta mono">${meta}</div>` : ''}
-        ${u.lineup && u.lineup.length ? `<div class="artists">${u.lineup.map(a =>
-          `<a class="artist-link" href="#/artist/${artistSlug(a)}">${escapeHtml(canonicalArtist(a))}</a>`
-        ).join('<span class="artist-sep">·</span>')}</div>` : ''}
-        ${u.note ? `<p class="lead">${escapeHtml(u.note)}</p>` : ''}
-        ${u.link ? `<a class="btn" href="${escapeHtml(u.link)}" target="_blank" rel="noopener">Подробности</a>` : ''}
+  <section class="hero upcoming-section" style="border-top:none;">
+    <div class="wrap">
+      <div class="up-head mono">
+        <span class="up-tag"><span class="dot"></span> Скоро · ${escapeHtml(u.title)}</span>
+        ${meta ? `<span class="up-meta">${meta}</span>` : ''}
       </div>
+      ${names ? `<h1 class="up-names">${names}</h1>` : ''}
+      ${u.note || u.link ? `
+      <div class="up-foot">
+        ${u.note ? `<p class="up-note">${escapeHtml(u.note)}</p>` : '<span></span>'}
+        ${u.link ? `<a class="btn" href="${escapeHtml(u.link)}" target="_blank" rel="noopener"
+             ${isTelegram ? 'data-goal="social_open" data-goal-where="upcoming"' : ''}>${escapeHtml(u.linkLabel || 'Подробности')}</a>` : ''}
+      </div>` : ''}
     </div>
   </section>`;
+}
+// Плашки с имён снимаются, когда блок анонса доходит до экрана. Без
+// IntersectionObserver (старый браузер) — сразу.
+function revealUpcoming(){
+  const box = document.querySelector('.upcoming-section');
+  if (!box) return;
+  if (!('IntersectionObserver' in window)){ box.classList.add('is-in'); return; }
+  const io = new IntersectionObserver(entries=>{
+    if (entries.some(e => e.isIntersecting)){ box.classList.add('is-in'); io.disconnect(); }
+  }, { threshold: 0.35 });
+  io.observe(box);
 }
 
 /* Вкладка «Соцсети»: сверху подписка на Boosty, ниже площадки. */
@@ -1693,6 +1723,7 @@ function render(){
   else if (currentTab === 'artist') app.innerHTML = renderArtist(route.artist);
   bindDynamicHandlers();
   fitHeroLayout();
+  revealUpcoming();
 }
 
 // Раскладка hero: фото должно быть ровно по высоте текстового блока
@@ -1751,7 +1782,8 @@ function fitHeroLayout(){
 // fitHeroLayout по ней считает, сколько места колонке текста нужно минимум.
 const HERO_TITLE_MAX = 48, HERO_TITLE_MIN = 26;
 function fitHeroTitle(){
-  const h1 = document.querySelector('.hero h1');
+  // у анонса свой кегль в CSS — подгонка под колонку рядом с фото ему не нужна
+  const h1 = document.querySelector('.hero h1:not(.up-names)');
   if (!h1) return 0;
   h1.style.fontSize = '';
   const colWidth = h1.clientWidth;

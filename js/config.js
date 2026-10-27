@@ -83,9 +83,18 @@ const CONFIG = {
   //   place: 'бар BTK, Москва',
   //   lineup: ['REDO', 'TILLS'],      // можно пустым массивом
   //   note: 'Съёмка закрытая, попасть — по анкете в телеграме.',
-  //   link: 'https://t.me/spotterglobal'   // необязательно
+  //   link: 'https://t.me/spotterglobal',  // необязательно
+  //   linkLabel: 'Узнать дату первым'      // надпись на кнопке, по умолчанию «Подробности»
   // },
-  upcoming: null,
+  upcoming: {
+    title: 'CHAPTER II · EP.09',
+    date: '',
+    place: '',
+    lineup: ['METOX', 'БРАЗИЛЕЦ', 'КРИП-А-КРИП', 'SCHOKK', 'DADDY BOCHA'],
+    note: 'Дату выхода первыми узнают подписчики Telegram-канала.',
+    link: 'https://t.me/spotterglobal',
+    linkLabel: 'Узнать дату первым'
+  },
 
   /* ЗАПАСНАЯ КОПИЯ АФИШИ. Настоящий источник — data/event.json, раздел
      «Событие» в редакторе. Копия нужна на случай, когда тот файл не пришёл:
