@@ -152,6 +152,55 @@ def read_config_bits():
     return aliases, about, quote
 
 
+# Анонс следующего выпуска (CONFIG.upcoming). Пока он заполнен, живой сайт
+# отдаёт ему первый экран — и страница из этой сборки должна делать так же,
+# иначе до загрузки скриптов мелькает последний выпуск. Разбираем только
+# настоящий блок «  upcoming: {», не пример в комментарии над ним.
+JS_STR = r"'((?:[^'\\]|\\.)*)'"
+
+
+def read_upcoming():
+    try:
+        with open(os.path.join(ROOT, 'js', 'config.js'), encoding='utf-8') as f:
+            src = f.read()
+    except OSError:
+        return None
+    if re.search(r'^  upcoming: null,', src, re.M):
+        return None
+    block = re.search(r'^  upcoming: \{\n(.*?)\n  \},', src, re.S | re.M)
+    if not block:
+        print('ВНИМАНИЕ: upcoming в config.js не разобрался — первый экран будет с выпуском')
+        return None
+    body = block.group(1)
+    unq = lambda v: re.sub(r'\\(.)', r'\1', v)
+    up = {k: unq(v) for k, v in re.findall(r'^\s*(\w+):\s*' + JS_STR, body, re.M)}
+    lineup = re.search(r'lineup:\s*\[(.*?)\]', body, re.S)
+    up['lineup'] = [unq(v) for v in re.findall(JS_STR, lineup.group(1))] if lineup else []
+    return up if up.get('title') else None
+
+
+def upcoming_section(up, aliases):
+    """Повторяет upcomingHtml в app.js: та же разметка, чтобы при загрузке
+    скриптов первый экран не дёргался. Имена без ссылок — у новичков
+    страниц участников ещё нет."""
+    names = '<span class="up-sep" aria-hidden="true">/</span>'.join(
+        '<span class="up-name" style="--n:{}"><span class="up-name-text">{}</span></span>'
+        .format(i, esc(aliases.get(n, n))) for i, n in enumerate(up.get('lineup') or []))
+    meta = ' · '.join(esc(x) for x in [up.get('date'), up.get('place')] if x)
+    foot = ''
+    if up.get('note') or up.get('link'):
+        foot = '<div class="up-foot">{}{}</div>'.format(
+            '<p class="up-note">{}</p>'.format(esc(up['note'])) if up.get('note') else '<span></span>',
+            '<a class="btn" href="{}" target="_blank" rel="noopener">{}</a>'.format(
+                esc(up['link']), esc(up.get('linkLabel') or 'Подробности')) if up.get('link') else '')
+    return (
+        '<section class="hero upcoming-section" style="border-top:none;"><div class="wrap">'
+        '<div class="up-head mono"><span class="up-tag"><span class="dot"></span> Скоро · {title}</span>{meta}</div>'
+        '{names}{foot}</div></section>'
+    ).format(title=esc(up['title']), meta='<span class="up-meta">{}</span>'.format(meta) if meta else '',
+             names='<h1 class="up-names">{}</h1>'.format(names) if names else '', foot=foot)
+
+
 # --- сборка блоков -------------------------------------------------------
 def lineup_html(ep, bios, aliases):
     names, seen = [], set()
@@ -581,7 +630,10 @@ def main():
     # --- главная ---------------------------------------------------------
     # Объявлен концерт — первый экран его, как и на живом сайте. Выпуск при
     # этом никуда не девается: он ниже, в разделе выпусков.
-    first_screen = event_section(event) if event else hero_section(latest, bios, aliases)
+    upcoming = None if event else read_upcoming()
+    first_screen = (event_section(event) if event
+                    else upcoming_section(upcoming, aliases) if upcoming
+                    else hero_section(latest, bios, aliases))
     home_body = (first_screen
                  + about_section(about, quote)
                  + episodes_section(episodes, bios, aliases, 'Выпуски')
