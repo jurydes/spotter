@@ -1006,6 +1006,16 @@ function tickerHtml(){
   return `<div class="ticker"><div class="ticker-track">${line}${line}</div></div>`;
 }
 
+/* Анонс снимается сам, как только в данных появился его выпуск или новее:
+   по номеру и главе (chapter, number в CONFIG.upcoming). Тогда на первом
+   экране снова последний выпуск, без правки конфига. Сборка (prerender.py)
+   считает то же самое — см. upcoming_done там. */
+function upcomingDone(u){
+  if (u.chapter == null || u.number == null) return false;
+  return (CONFIG.episodes || []).some(e => e && e.number != null &&
+    (e.chapter > u.chapter || (e.chapter === u.chapter && e.number >= u.number)));
+}
+
 /* Анонс следующего выпуска — занимает первый экран главной вместо
    последнего выпуска. Пока CONFIG.upcoming пуст, первый экран обычный.
 
@@ -1019,7 +1029,7 @@ function tickerHtml(){
    выпусков ещё нет, и ссылка показала бы «Участник не найден». */
 function upcomingHtml(){
   const u = CONFIG.upcoming;
-  if (!u || !u.title) return '';
+  if (!u || !u.title || upcomingDone(u)) return '';
   const known = new Set(allArtists());
   const names = (u.lineup || []).map((a, i) => {
     const name = canonicalArtist(a);

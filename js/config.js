@@ -87,6 +87,8 @@ const CONFIG = {
   //   linkLabel: 'Узнать дату первым'      // надпись на кнопке, по умолчанию «Подробности»
   // },
   upcoming: {
+    chapter: 2,
+    number: 9,
     title: 'CHAPTER II · EP.09',
     date: '',
     place: '',

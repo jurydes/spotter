@@ -174,9 +174,24 @@ def read_upcoming():
     body = block.group(1)
     unq = lambda v: re.sub(r'\\(.)', r'\1', v)
     up = {k: unq(v) for k, v in re.findall(r'^\s*(\w+):\s*' + JS_STR, body, re.M)}
+    for k, v in re.findall(r'^\s*(chapter|number):\s*(\d+)', body, re.M):
+        up[k] = int(v)
     lineup = re.search(r'lineup:\s*\[(.*?)\]', body, re.S)
     up['lineup'] = [unq(v) for v in re.findall(JS_STR, lineup.group(1))] if lineup else []
     return up if up.get('title') else None
+
+
+def upcoming_done(up, episodes):
+    """Как upcomingDone в app.js: анонс снимается, когда в данных есть его
+    выпуск или новее (по главе и номеру)."""
+    if up.get('chapter') is None or up.get('number') is None:
+        return False
+    for e in episodes:
+        c = e.get('chapter') if e else None
+        if e and e.get('number') is not None and c is not None and (
+                c > up['chapter'] or (c == up['chapter'] and e['number'] >= up['number'])):
+            return True
+    return False
 
 
 def upcoming_section(up, aliases):
@@ -631,6 +646,8 @@ def main():
     # Объявлен концерт — первый экран его, как и на живом сайте. Выпуск при
     # этом никуда не девается: он ниже, в разделе выпусков.
     upcoming = None if event else read_upcoming()
+    if upcoming and upcoming_done(upcoming, episodes):
+        upcoming = None
     first_screen = (event_section(event) if event
                     else upcoming_section(upcoming, aliases) if upcoming
                     else hero_section(latest, bios, aliases))
