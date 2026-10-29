@@ -236,6 +236,25 @@
       "chapter": 2,
       "number": 8,
       "standalone": false
+    },
+    {
+      "title": "METOX, БРАЗИЛЕЦ, SCHOKK, КРИП-А-КРИП, DADDY BOCHA x DJ CHAPO",
+      "artists": [
+        "SCHOKK",
+        "БРАЗИЛЕЦ",
+        "КРИП-А-КРИП",
+        "METOX",
+        "DADDY BOCHA",
+        "CHAPO"
+      ],
+      "dj": "CHAPO",
+      "youtubeUrl": "https://www.youtube.com/watch?v=LRhZe_z_4DE",
+      "duration": "20:31",
+      "cover": "assets/episodes/photo-mvtuefmi.jpg",
+      "description": "",
+      "chapter": 2,
+      "number": 9,
+      "standalone": false
     }
   ]
 }
