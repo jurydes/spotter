@@ -935,6 +935,7 @@ function renderHome(){
   const shownMerch = visibleMerch();
   let homePicks = merchOrdered(shownMerch).filter(p => merchTag(p));
   if (!homePicks.length && shownMerch.length) homePicks = [shownMerch[0]];
+  const homeStripPicks = homePicks.slice(0, 2);
   const chapterTag = chapterLabel(latest.chapter);
   const latestBadge = latest.number != null ? `${chapterTag} · EP.${String(latest.number).padStart(2,'0')}` : chapterTag;
 
@@ -961,6 +962,25 @@ function renderHome(){
   </section>`;
 
   return `
+  ${homeStripPicks.length ? `
+  <section class="home-merch-strip" aria-label="Мерч SPOTTER">
+    <div class="wrap home-merch-strip-inner">
+      ${homeStripPicks.map(p => `
+      <a class="home-merch-strip-item" href="#/product/${encodeURIComponent(p.id)}" aria-label="Открыть ${escapeHtml(p.name)}">
+        <span class="home-merch-strip-photo">
+          ${productImages(p)[0]
+            ? `<img src="${escapeHtml(productImages(p)[0])}" alt="" decoding="async">`
+            : '<span class="home-merch-strip-photo-empty" aria-hidden="true">SPOTTER</span>'}
+        </span>
+        <span class="home-merch-strip-copy">
+          <span class="home-merch-strip-kicker mono">${escapeHtml(merchTag(p) || 'На витрине')}</span>
+          <strong>${escapeHtml(p.name)}</strong>
+          <span class="home-merch-strip-price mono">${formatPrice(p.price)}</span>
+        </span>
+      </a>`).join('')}
+      <a class="home-merch-strip-link mono" href="#/merch">Смотреть мерч <span aria-hidden="true">↗</span></a>
+    </div>
+  </section>` : ''}
   ${firstScreen}
 
   ${tickerHtml()}
