@@ -255,6 +255,24 @@
       "chapter": 2,
       "number": 9,
       "standalone": false
+    },
+    {
+      "title": "SAPA13, КУКИШ С ХАСЛОМ, SHALA, SPIESKEY, ESKI M x DJ CHAPO",
+      "artists": [
+        "SPIESKEY",
+        "ESKI M",
+        "КУКИШ С ХАСЛОМ",
+        "SAPA13",
+        "SHALA"
+      ],
+      "dj": "DJ CHAPO",
+      "youtubeUrl": "https://youtu.be/SXqEoBRInkI?si=x6vTNCBp4n6itAOO",
+      "duration": "16:11",
+      "cover": "assets/episodes/photo-mw7zyacw.jpg",
+      "description": "",
+      "chapter": 2,
+      "number": 10,
+      "standalone": false
     }
   ]
 }
