@@ -1,7 +1,7 @@
 {
   "merch": [
     {
-      "price": 3490,
+      "price": 2975,
       "name": "Футболка REWINDING RIDDIMS",
       "sizes": [
         "M",
@@ -24,10 +24,11 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
-      "price": 3490,
+      "price": 2975,
       "name": "Футболка SPOTTER Blue",
       "sizes": [
         "M",
@@ -55,10 +56,11 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
-      "price": 3499,
+      "price": 2975,
       "name": "Футболка SPOTTER Logo Pink",
       "sizes": [
         "M",
@@ -84,10 +86,11 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
-      "price": 3490,
+      "price": 2975,
       "name": "Футболка SPOTTER Green",
       "sizes": [
         "M",
@@ -110,10 +113,11 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
-      "price": 3499,
+      "price": 2975,
       "name": "Футболка REWIND BUSINESS Black",
       "sizes": [
         "M",
@@ -136,10 +140,11 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
-      "price": 3499,
+      "price": 2795,
       "name": "Футболка REWIND BUSINESS White",
       "sizes": [
         "M",
@@ -162,10 +167,11 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
-      "price": 3499,
+      "price": 2975,
       "name": "Футболка SPOTTER Logo",
       "sizes": [
         "M",
@@ -188,7 +194,8 @@
       "category": "Футболки",
       "isNew": false,
       "preorder": false,
-      "leadTime": ""
+      "leadTime": "",
+      "oldPrice": 3500
     },
     {
       "price": 5695,
