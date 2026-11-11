@@ -1,7 +1,7 @@
 {
   "merch": [
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка REWINDING RIDDIMS",
       "sizes": [
         "M",
@@ -25,10 +25,10 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка SPOTTER Blue",
       "sizes": [
         "M",
@@ -57,10 +57,10 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка SPOTTER Logo Pink",
       "sizes": [
         "M",
@@ -87,10 +87,10 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка SPOTTER Green",
       "sizes": [
         "M",
@@ -114,10 +114,10 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка REWIND BUSINESS Black",
       "sizes": [
         "M",
@@ -141,10 +141,10 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка REWIND BUSINESS White",
       "sizes": [
         "M",
@@ -168,10 +168,10 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 2975,
+      "price": 3500,
       "name": "Футболка SPOTTER Logo",
       "sizes": [
         "M",
@@ -195,11 +195,11 @@
       "isNew": false,
       "preorder": false,
       "leadTime": "",
-      "oldPrice": 3500
+      "oldPrice": null
     },
     {
-      "price": 5695,
-      "oldPrice": 6700,
+      "price": 6700,
+      "oldPrice": null,
       "name": "Худи SPOTTER",
       "sizes": [
         "M",
