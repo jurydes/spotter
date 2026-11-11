@@ -975,7 +975,10 @@ function renderHome(){
         <span class="home-merch-strip-copy">
           <span class="home-merch-strip-kicker mono">${escapeHtml(merchTag(p) || 'На витрине')}</span>
           <strong>${escapeHtml(p.name)}</strong>
-          <span class="home-merch-strip-price mono">${formatPrice(p.price)}</span>
+          <span class="home-merch-strip-price mono">
+            ${formatPrice(p.price)}
+            ${salePercent(p) ? `<span class="home-merch-strip-old">${formatPrice(p.oldPrice)}</span><span class="home-merch-strip-sale">−${salePercent(p)}%</span>` : ''}
+          </span>
         </span>
       </a>`).join('')}
       <a class="home-merch-strip-link mono" href="#/merch">Смотреть мерч <span aria-hidden="true">↗</span></a>
@@ -1600,21 +1603,26 @@ function surveyDiscount(){
 function priceAfterSurvey(product){
   return Math.max(product.price - surveyDiscount(), 0);
 }
-// Цена с зачёркнутой базовой и итоговой после опроса. Оба числа настоящие:
-// 6 700 платит тот, кто опрос не проходит, 5 000 — кто прошёл. Без скидки
-// в конфиге остаётся просто цена, как было.
+// Процент акции считается из прежней и текущей цены, чтобы ценник и заказ
+// всегда совпадали. Пустая или меньшая oldPrice не включает плашку.
+function salePercent(p){
+  const oldPrice = Number(p && p.oldPrice);
+  const price = Number(p && p.price);
+  return oldPrice > price && price > 0 ? Math.round((oldPrice - price) / oldPrice * 100) : 0;
+}
 function priceBlockHtml(p, note){
   const d = surveyDiscount();
-  if (!d){
+  const sale = salePercent(p);
+  if (!d && !sale){
     return `<div class="price">${formatPrice(p.price)}${note ? ` <span class="price-note mono">${escapeHtml(note)}</span>` : ''}</div>`;
   }
-  // Одна цена — та, что человек платит, — и рядом размер скидки отдельной
-  // плашкой. Двух цен в ценнике намеренно нет: крупное число всегда совпадает
-  // с тем, что стоит на кнопке и уйдёт в заказ.
+  // Крупная цена — та, что уйдёт в корзину. Прежняя цена нужна только для
+  // товара с акцией; скидка за опрос показывается отдельно, когда он включён.
   return `
     <div class="price-row">
       <span class="price">${formatPrice(p.price)}</span>
-      <span class="price-badge mono">−${formatPrice(surveyDiscount())} за опрос</span>
+      ${sale ? `<span class="price-old mono">${formatPrice(p.oldPrice)}</span><span class="price-badge mono">−${sale}%</span>` : ''}
+      ${d ? `<span class="price-badge mono">−${formatPrice(d)} за опрос</span>` : ''}
       ${note ? `<span class="price-note mono">${escapeHtml(note)}</span>` : ''}
     </div>`;
 }

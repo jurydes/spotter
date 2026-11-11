@@ -191,7 +191,8 @@
       "leadTime": ""
     },
     {
-      "price": 6700,
+      "price": 5695,
+      "oldPrice": 6700,
       "name": "Худи SPOTTER",
       "sizes": [
         "M",

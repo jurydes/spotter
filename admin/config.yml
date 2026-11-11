@@ -54,6 +54,7 @@ collections:
                 hint: "Только латиница, цифры и дефисы, без пробелов, например spotter-blue. Меняй только у нового товара — у существующего трогать нельзя, на него завязана корзина."
               - {label: "Категория", name: "category", widget: "string", hint: "Пиши точно как у других товаров того же типа — «Футболки» или «Худи» (или заведи новую, если это правда новый раздел)."}
               - {label: "Цена, ₽", name: "price", widget: "number", value_type: "int"}
+              - {label: "Цена до скидки, ₽", name: "oldPrice", widget: "number", value_type: "int", required: false, hint: "Заполни для товара со скидкой: сайт зачеркнёт эту цену и покажет процент скидки."}
               - {label: "Описание", name: "description", widget: "text"}
               - {label: "Показывать как «Популярное»", name: "popular", widget: "boolean", default: false, hint: "Отметь максимум у одного товара — он выделяется на главной."}
               - {label: "Размеры в продаже", name: "sizes", widget: "list", field: {label: "Размер", name: "size", widget: "string"}, hint: "Обычно S, M, L, XL — по одному размеру на строку, в этом же порядке."}
