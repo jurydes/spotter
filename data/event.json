@@ -1,6 +1,24 @@
 {
   "event": [
     {
+      "active": true,
+      "title": "SPOTTER LIVE",
+      "date": "25 ноября, 20:00",
+      "dateShort": "25.11",
+      "endsAt": "2026-11-26",
+      "place": "бар БТК, пр. Мира, 102, корп. 1",
+      "poster": "assets/events/spotter-live-2026-11-25.png",
+      "age": "16+",
+      "ticketUrl": "https://t.me/nokiamane",
+      "lineup": [
+        "BOOMBAP: PASTOR NAPAS, VIBETGK, CHI CHI, BRICK BAZUKA",
+        "BOOMBAP: ПАЗНЯКС, ДЕВИАНТНЫЙ ДИАЛЕКТ, BOOKER, БЭНГ",
+        "TRAP: MASHA HIMA, ШУММ, ИЗТОЛПЫ, ALPHAVITE, SECTOR",
+        "GRIME: DYOGTYA, DREAMSET, KODZIMA, МИШАРИК",
+        "DJ: CHAPO, GOLOVINA"
+      ]
+    },
+    {
       "active": false,
       "title": "SPOTTER LIVE",
       "date": "23 октября",

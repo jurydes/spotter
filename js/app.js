@@ -855,6 +855,9 @@ function eventHeroHtml(ev){
      Boosty, а не сайт, и «осталось 40 из 40», которое никогда не меняется,
      хуже, чем ничего. Голое «всего 40 мест» тоже убрано — по просьбе. */
   const howTo = eventHowToHtml(ev);
+  const rules = eventTelegramUrl(ev) ? '' : `<p class="ev-rules">${howTo
+    ? ''
+    : 'Билет придёт в Telegram после оформления. '}Вход${ev.age ? ' ' + escapeHtml(ev.age) : ''}, <b>паспорт обязателен</b> — без документа не пустят.</p>`;
 
   return `
   <section class="hero ev-hero">
@@ -872,9 +875,7 @@ function eventHeroHtml(ev){
           ${stock}
         </div>
         ${inCart > 0 ? `<div class="ev-in-cart mono">в корзине: ${inCart}</div>` : ''}`}
-        <p class="ev-rules">${howTo
-          ? ''
-          : 'Билет придёт в Telegram после оформления. '}Вход${ev.age ? ' ' + escapeHtml(ev.age) : ''}, <b>паспорт обязателен</b> — без документа не пустят.</p>
+        ${rules}
       </div>
     </div>
   </section>`;
@@ -885,9 +886,17 @@ function eventHeroHtml(ev){
    Пустая строка в ответе — значит, продажа идёт на сайте, и вызывающий код
    рисует кнопку с корзиной, как раньше. Так переключение живёт в данных:
    заполнили ссылку — попали в этот путь, очистили — вернулись к прежнему. */
+function eventTelegramUrl(ev){
+  const url = typeof ev?.ticketUrl === 'string' ? ev.ticketUrl.trim() : '';
+  return /^https:\/\/t\.me\/[a-z0-9_]+\/?$/i.test(url) ? url : '';
+}
+
 function eventHowToHtml(ev){
   const url = ev && typeof ev.ticketUrl === 'string' ? ev.ticketUrl.trim() : '';
   if (!url) return '';
+  if (eventTelegramUrl(ev)){
+    return `<div class="ev-buy-row"><a class="btn ev-buy" href="${escapeHtml(url)}" target="_blank" rel="noopener">Написать в Telegram</a></div>`;
+  }
   const tier = ev.boostyTier ? String(ev.boostyTier).trim() : '';
   // Шаги описаны здесь, а не в данных: это не текст про конкретный концерт,
   // а то, как у нас вообще устроен вход. Меняется только уровень подписки.
@@ -1478,6 +1487,7 @@ function parseLineup(lines){
 const GENRE_COLORS = {
   'BOOMBAP': '#e32b1d', 'BOOM BAP': '#e32b1d',
   'GARAGE': '#7b3ff2', 'UK GARAGE': '#7b3ff2',
+  'TRAP': 'var(--trap-orange)',
   'GRIME': '#131dff',
   'DJ': '#c9c6bf', 'DJS': '#c9c6bf', 'ДИДЖЕИ': '#c9c6bf'
 };

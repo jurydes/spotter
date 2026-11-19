@@ -400,12 +400,18 @@ def event_section(ev):
         return ''
     groups = ''.join(
         '<div class="ev-genre">{}<ul class="ev-names">{}</ul></div>'.format(
-            '<div class="ev-genre-tag mono">{}</div>'.format(esc(genre)) if genre else '',
+            '<div class="ev-genre-tag mono{}">{}</div>'.format(
+                ' is-trap' if genre.upper() == 'TRAP' else '', esc(genre)) if genre else '',
             ''.join('<li>{}</li>'.format(esc(n)) for n in names))
         for genre, names in parse_lineup(ev.get('lineup')))
     poster = ('<div class="ph-photo viewfinder"><img class="ph-img" src="/{}" alt="Афиша {}"></div>'
               .format(esc(ev['poster']), esc(ev.get('title'))) if ev.get('poster') else '')
     when = ' · '.join(x for x in [ev.get('date'), ev.get('place')] if x)
+    rules = ''
+    if not event_telegram_url(ev):
+        terms = '' if ticket_url(ev) else 'Билет придёт в Telegram после оформления. '
+        age = ' ' + esc(ev['age']) if ev.get('age') else ''
+        rules = '<p class="ev-rules">{}Вход{}, <b>паспорт обязателен</b>.</p>'.format(terms, age)
     return (
         '<section class="hero ev-hero"><div class="wrap ev-grid">'
         '<div class="ev-poster">{poster}</div>'
@@ -413,14 +419,12 @@ def event_section(ev):
         '<div class="badge-rec">Offline ивент{age}</div>'
         '<h1>{title}</h1><div class="ev-when mono">{when}</div>'
         '{note}<div class="ev-lineup">{groups}</div>{howto}'
-        '<p class="ev-rules">{terms}Вход{age2}, <b>паспорт обязателен</b>.</p>'
+        '{rules}'
         '</div></div></section>'
     ).format(poster=poster, age=(' · ' + esc(ev['age'])) if ev.get('age') else '',
              title=esc(ev.get('title') or 'SPOTTER LIVE'), when=esc(when),
              note='<p class="lead">{}</p>'.format(multiline(ev['note'])) if ev.get('note') else '',
-             groups=groups, howto=event_howto(ev),
-             terms='' if ticket_url(ev) else 'Билет придёт в Telegram после оформления. ',
-             age2=(' ' + esc(ev['age'])) if ev.get('age') else '')
+             groups=groups, howto=event_howto(ev), rules=rules)
 
 
 def plural(n, one, few, many):
@@ -450,6 +454,10 @@ def ticket_url(ev):
     return str(url).strip() if isinstance(url, str) and url.strip() else ''
 
 
+def event_telegram_url(ev):
+    return bool(re.fullmatch(r'https://t\.me/[a-z0-9_]+/?', ticket_url(ev), re.I))
+
+
 def event_howto(ev):
     """Порядок действий и ссылка — то же, что рисует eventHowToHtml на сайте.
 
@@ -457,6 +465,9 @@ def event_howto(ev):
     который дошёл до страницы из выдачи: он должен понять условие («нужна
     подписка») до того, как уйдёт по ссылке."""
     url = ticket_url(ev)
+    if event_telegram_url(ev):
+        return ('<div class="ev-buy-row"><a class="btn ev-buy" href="{}" '
+                'target="_blank" rel="noopener">Написать в Telegram</a></div>').format(esc(url))
     if not url:
         price = ev.get('ticketPrice')
         return ('<div class="ev-buy-row"><span class="ev-price mono">Билет {} ₽</span></div>'
@@ -515,7 +526,7 @@ def event_json_ld(ev):
     # Продажа на стороне: в разметке указываем, где покупают, но не цену.
     # Цену там задаёт уровень подписки, и вписать сюда своё число значило бы
     # пообещать в выдаче сумму, которой по ссылке нет.
-    if ticket_url(ev):
+    if ticket_url(ev) and not event_telegram_url(ev):
         block['offers'] = {'@type': 'Offer', 'url': ticket_url(ev),
                            'availability': 'https://schema.org/InStock'}
     elif ev.get('ticketPrice') is not None:
