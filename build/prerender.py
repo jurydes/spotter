@@ -467,7 +467,7 @@ def event_howto(ev):
     url = ticket_url(ev)
     if event_telegram_url(ev):
         return ('<div class="ev-buy-row"><a class="btn ev-buy" href="{}" '
-                'target="_blank" rel="noopener">Написать в Telegram</a></div>').format(esc(url))
+                'target="_blank" rel="noopener">Записаться на съемки</a></div>').format(esc(url))
     if not url:
         price = ev.get('ticketPrice')
         return ('<div class="ev-buy-row"><span class="ev-price mono">Билет {} ₽</span></div>'

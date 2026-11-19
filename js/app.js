@@ -895,7 +895,7 @@ function eventHowToHtml(ev){
   const url = ev && typeof ev.ticketUrl === 'string' ? ev.ticketUrl.trim() : '';
   if (!url) return '';
   if (eventTelegramUrl(ev)){
-    return `<div class="ev-buy-row"><a class="btn ev-buy" href="${escapeHtml(url)}" target="_blank" rel="noopener">Написать в Telegram</a></div>`;
+    return `<div class="ev-buy-row"><a class="btn ev-buy" href="${escapeHtml(url)}" target="_blank" rel="noopener">Записаться на съемки</a></div>`;
   }
   const tier = ev.boostyTier ? String(ev.boostyTier).trim() : '';
   // Шаги описаны здесь, а не в данных: это не текст про конкретный концерт,
