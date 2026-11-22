@@ -895,7 +895,7 @@ function eventHowToHtml(ev){
   const url = ev && typeof ev.ticketUrl === 'string' ? ev.ticketUrl.trim() : '';
   if (!url) return '';
   if (eventTelegramUrl(ev)){
-    return `<div class="ev-buy-row"><a class="btn ev-buy" href="${escapeHtml(url)}" target="_blank" rel="noopener">Записаться на съемки</a></div>`;
+    return `<div class="ev-buy-row"><button class="btn ev-buy" type="button" data-event-signup aria-haspopup="dialog">Записаться на съемки</button></div>`;
   }
   const tier = ev.boostyTier ? String(ev.boostyTier).trim() : '';
   // Шаги описаны здесь, а не в данных: это не текст про конкретный концерт,
@@ -924,6 +924,62 @@ function eventHowToHtml(ev){
            data-goal="ticket_boosty">Открыть пост на Boosty</a>
       </div>
     </div>`;
+}
+
+function openEventSignup(ev){
+  if (document.getElementById('eventSignup')) return;
+  const contact = eventTelegramUrl(ev);
+  if (!contact) return;
+  const boosty = CONFIG.boosty;
+  const tiers = (boosty.tiers || []).filter(t => t && t.name);
+  const minimum = tiers.findIndex(t => t && t.name === 'Спартанец');
+  const eligible = minimum < 0 ? [] : tiers.slice(minimum).filter(t => t.id);
+  const defaultTier = eligible[0];
+  const dialog = document.createElement('dialog');
+  dialog.id = 'eventSignup';
+  dialog.className = 'event-signup';
+  dialog.setAttribute('aria-labelledby', 'eventSignupTitle');
+  dialog.innerHTML = `
+    <form method="dialog">
+      <button class="modal-close" type="submit" aria-label="Закрыть">×</button>
+    </form>
+    <h2 id="eventSignupTitle">Записаться на съемки</h2>
+    <p>Салют! Чтобы попасть на съёмки SPOTTER, нужна подписка на Boosty проекта от уровня «Спартанец». Подписка даёт ранний доступ к новостям, эксклюзивному контенту, проходкам на ивенты и закрытому чату с организаторами. Спасибо за поддержку!</p>
+    <ol class="event-signup-steps">
+      <li>
+        <h3>Оформи подписку</h3>
+        ${eligible.length ? `<fieldset class="event-signup-tiers">
+          <legend>Выбери уровень от «Спартанца»</legend>
+          ${boostyTiersHtml(eligible, (tier, content, style) => `<li ${style}>
+                <input class="event-tier-choice" type="radio" name="eventSignupTier" id="eventTier-${escapeHtml(tier.id)}"
+                  value="${escapeHtml(boostyPurchaseUrl(boosty.url, tier))}" ${tier === defaultTier ? 'checked autofocus' : ''}>
+                <label class="tier" for="eventTier-${escapeHtml(tier.id)}">
+                  ${content}
+                  <span class="tier-cta mono" aria-hidden="true"><span class="event-tier-select">Выбрать</span><span class="event-tier-selected">✓ Выбрано</span></span>
+                </label>
+              </li>`)}
+        </fieldset>` : ''}
+        <a class="btn" data-signup-subscribe href="${escapeHtml(boostyPurchaseUrl(boosty.url, defaultTier))}" target="_blank" rel="noopener">Оформить подписку на Boosty</a>
+      </li>
+      <li>
+        <h3>Пришли скриншот подписки и ФИО</h3>
+        <p>В ответ пришлём ссылку на чат, место и время ближайших съёмок и инструкцию для участников.</p>
+        <a class="btn-outline" href="${escapeHtml(contact)}" target="_blank" rel="noopener">Отправить в Telegram</a>
+      </li>
+    </ol>`;
+  const subscribe = dialog.querySelector('[data-signup-subscribe]');
+  dialog.addEventListener('change', e => {
+    if (e.target.name === 'eventSignupTier') subscribe.href = e.target.value;
+  });
+  dialog.addEventListener('click', e => {
+    if (e.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (e.clientX < rect.left || e.clientX > rect.right ||
+        e.clientY < rect.top || e.clientY > rect.bottom) dialog.close();
+  });
+  dialog.addEventListener('close', () => dialog.remove(), { once:true });
+  document.body.append(dialog);
+  dialog.showModal();
 }
 
 function renderHome(){
@@ -1132,27 +1188,39 @@ function channelsHtml(){
    поэтому они стоят лестницей: ступень выше, бонусов больше, а на каждой
    написано только то, что она добавляет. Ступень ведёт сразу к оформлению
    своего уровня на Boosty. */
+function boostyPurchaseUrl(url, tier){
+  const base = url.replace(/\/+$/, '');
+  return tier?.id ? `${base}/purchase/${encodeURIComponent(tier.id)}?ssource=DIRECT&share=subscription_link` : base;
+}
+function boostyTiersHtml(tiers, renderTier){
+  const steps = tiers.map((t, i) => {
+    const prev = i > 0 ? `<span class="tier-inherit mono">всё из «${escapeHtml(tiers[i - 1].name)}», плюс</span>` : '';
+    const content = `
+        ${t.featured ? `<span class="tier-flag mono">${escapeHtml(t.featured)}</span>` : ''}
+        <span class="tier-name">${escapeHtml(t.name)}</span>
+        ${Number(t.price) ? `<span class="tier-price mono">${formatPrice(Number(t.price))}<small> в месяц</small></span>` : ''}
+        ${prev}
+        <span class="tier-perks" role="list">${(t.perks || []).map(p =>
+          // «2-го» в узкой колонке рвалось на «2-» и «го» — дефис после цифры неразрывный
+          `<span role="listitem">${escapeHtml(p).replace(/(\d)-/g, '$1‑')}</span>`).join('')}</span>`;
+    return renderTier(t, content, `style="--i:${i}"`);
+  }).join('');
+  return `<div class="tiers-wrap">
+    <p class="tiers-note mono"><b>Каждый следующий уровень включает всё из&nbsp;предыдущих<span class="tiers-note-arrow" aria-hidden="true">↗</span></b>На ступени — только то, что она добавляет.</p>
+    <ol class="tiers">${steps}</ol>
+  </div>`;
+}
 function boostyHtml(first){
   const b = CONFIG.boosty;
   const tiers = b && b.url ? (b.tiers || []).filter(t => t && t.name) : [];
   if (!tiers.length) return '';
   const base = b.url.replace(/\/+$/, '');
-  const steps = tiers.map((t, i) => {
-    const href = t.id ? `${base}/purchase/${encodeURIComponent(t.id)}?ssource=DIRECT&share=subscription_link` : base;
-    const prev = i > 0 ? `<span class="tier-inherit mono">всё из «${escapeHtml(tiers[i - 1].name)}», плюс</span>` : '';
-    return `
-      <li style="--i:${i}"><a class="tier${t.featured ? ' is-featured' : ''}" href="${escapeHtml(href)}" target="_blank" rel="noopener"
+  const chart = boostyTiersHtml(tiers, (t, content, style) => `
+      <li ${style}><a class="tier${t.featured ? ' is-featured' : ''}" href="${escapeHtml(boostyPurchaseUrl(base, t))}" target="_blank" rel="noopener"
              data-goal="boosty_open" data-goal-where="${escapeHtml(t.name)}">
-        ${t.featured ? `<span class="tier-flag mono">${escapeHtml(t.featured)}</span>` : ''}
-        <span class="tier-name">${escapeHtml(t.name)}</span>
-        ${Number(t.price) ? `<span class="tier-price mono">${formatPrice(Number(t.price))}<small> в месяц</small></span>` : ''}
-        ${prev}
-        <ul class="tier-perks">${(t.perks || []).map(p =>
-          // «2-го» в узкой колонке рвалось на «2-» и «го» — дефис после цифры неразрывный
-          `<li>${escapeHtml(p).replace(/(\d)-/g, '$1‑')}</li>`).join('')}</ul>
+        ${content}
         <span class="tier-cta mono">Оформить<span aria-hidden="true"> →</span></span>
-      </a></li>`;
-  }).join('');
+      </a></li>`);
   return `
   <section class="boosty-section"${first ? ' style="border-top:none;"' : ''}>
     <div class="wrap">
@@ -1164,10 +1232,7 @@ function boostyHtml(first){
         <a class="btn" href="${escapeHtml(base)}" target="_blank" rel="noopener"
            data-goal="boosty_open" data-goal-where="button">Открыть Boosty</a>
       </div>
-      <div class="tiers-wrap">
-        <p class="tiers-note mono"><b>Каждый следующий уровень включает всё из&nbsp;предыдущих<span class="tiers-note-arrow" aria-hidden="true">↗</span></b>На ступени — только то, что она добавляет.</p>
-        <ol class="tiers">${steps}</ol>
-      </div>
+      ${chart}
     </div>
   </section>`;
 }
@@ -1857,6 +1922,8 @@ function fitHeroTitle(){
   return perPx;
 }
 function bindDynamicHandlers(){
+  const eventSignup = document.querySelector('[data-event-signup]');
+  if (eventSignup) eventSignup.addEventListener('click', () => openEventSignup(activeEvent()));
   document.querySelectorAll('[data-open-product]').forEach(el=>{
     el.addEventListener('click', ()=> openProduct(el.dataset.openProduct));
   });

@@ -337,6 +337,39 @@
   .ev-buy-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
   .ev-buy{padding:15px 28px;font-size:15px;}
   .ev-buy:disabled{background:var(--surface-2);color:var(--paper-dim);cursor:not-allowed;}
+  html:has(.event-signup[open]){overflow:hidden;}
+  .event-signup{
+    width:min(900px,calc(100% - 24px));max-height:calc(100dvh - 24px);
+    margin:auto;padding:clamp(20px,5vw,36px);overflow:auto;
+    border:1px solid var(--steel);background:var(--ink);color:var(--paper);
+  }
+  .event-signup::backdrop{background:rgba(8,8,9,.76);}
+  .event-signup h2{padding-right:32px;font-size:clamp(20px,4vw,30px);}
+  .event-signup h3{font-size:15px;}
+  .event-signup p{margin:10px 0 0;font-size:15px;color:var(--paper-dim);}
+  .event-signup-steps{display:grid;gap:18px;margin:24px 0 0;padding-left:24px;}
+  .event-signup-steps li::marker{font:700 15px var(--f-mono);color:var(--accent-light);}
+  .event-signup-tiers{min-width:0;margin:12px 0 0;padding:0;border:0;}
+  .event-signup-tiers legend{padding:0;margin-bottom:12px;font-size:14px;}
+  .event-signup .tiers-note{position:static;width:auto;margin:0 0 12px;font-size:13px;}
+  .event-signup .tiers-note-arrow{display:none;}
+  .event-signup .tiers{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .event-signup .tiers > li{position:relative;}
+  .event-signup .tier{padding-inline:12px;text-align:left;margin-top:0;}
+  .event-signup label.tier{cursor:pointer;}
+  .event-tier-choice{position:absolute;width:1px;height:1px;opacity:0;}
+  .event-tier-choice:checked + .tier{border-color:var(--accent);background:var(--accent);z-index:1;}
+  .event-tier-choice:checked + .tier :is(.tier-price small,.tier-inherit,.tier-perks > [role="listitem"],.tier-cta),
+  .event-tier-choice:checked + .tier .tier-perks > [role="listitem"]::before{color:var(--paper);}
+  .event-tier-choice:focus-visible + .tier{outline:2px solid var(--paper);outline-offset:-3px;}
+  .event-tier-selected,.event-tier-choice:checked + .tier .event-tier-select{display:none;}
+  .event-tier-choice:checked + .tier .event-tier-selected{display:inline;}
+  @media (max-width:860px){
+    .event-signup .tiers{grid-template-columns:1fr;}
+    .event-signup .tier{margin-top:-1px;}
+    .event-signup .tier-cta{display:block;grid-column:1/-1;padding-top:4px;}
+  }
+  .event-signup .btn,.event-signup .btn-outline{margin-top:12px;}
   .ev-stock{font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:var(--steel);}
   .ev-in-cart{margin-top:10px;font-size:12px;color:var(--accent-light);letter-spacing:0.03em;}
   /* Как попасть, когда билеты продаются не на сайте. Нумерация здесь не
@@ -641,8 +674,8 @@
   .tier-price small{font-size:12px;font-weight:400;color:var(--paper-dim);}
   .tier-inherit{font-size:11px;letter-spacing:0.04em;color:var(--steel);margin-top:8px;}
   .tier-perks{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:7px;}
-  .tier-perks li{font-size:14px;line-height:1.35;color:var(--paper-dim);padding-left:14px;position:relative;}
-  .tier-perks li::before{content:'+';position:absolute;left:0;color:var(--accent-light);font-family:var(--f-mono);}
+  .tier-perks > [role="listitem"]{font-size:14px;line-height:1.35;color:var(--paper-dim);padding-left:14px;position:relative;}
+  .tier-perks > [role="listitem"]::before{content:'+';position:absolute;left:0;color:var(--accent-light);font-family:var(--f-mono);}
   .tier-cta{
     margin-top:auto;padding-top:14px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;
     color:var(--accent-light);
@@ -651,8 +684,8 @@
   .tier.is-featured:hover{background:var(--accent-dim);border-color:var(--accent-dim);}
   .tier.is-featured .tier-price small,
   .tier.is-featured .tier-inherit,
-  .tier.is-featured .tier-perks li,
-  .tier.is-featured .tier-perks li::before,
+  .tier.is-featured .tier-perks > [role="listitem"],
+  .tier.is-featured .tier-perks > [role="listitem"]::before,
   .tier.is-featured .tier-cta{color:var(--paper);}
   /* Узко пять ступеней не встают — список сверху вниз, без лестницы.
      Порядок тот же, подсвеченный уровень остаётся залитым. */
