@@ -273,6 +273,25 @@
       "chapter": 2,
       "number": 10,
       "standalone": false
+    },
+    {
+      "title": "FOLKPRO, DEKABRJ, PLEMYANNIK, CH33, SPIRITNIGHT x DJ 1312",
+      "artists": [
+        "FOLKPRO",
+        "DEKABRJ",
+        "PLEMYANNIK",
+        "CH33",
+        "SPIRITNIGHT",
+        "DJ 1312"
+      ],
+      "dj": "DJ 1312",
+      "youtubeUrl": "https://youtu.be/Vo266oSdL-4?si=7k6VmmzmUAZZSDjW",
+      "duration": "15:44",
+      "cover": "assets/episodes/photo-mwxzz6x3.jpg",
+      "description": "",
+      "chapter": 2,
+      "number": 11,
+      "standalone": false
     }
   ]
 }
